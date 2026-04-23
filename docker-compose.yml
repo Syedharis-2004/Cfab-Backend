@@ -1,0 +1,72 @@
+version: "3.9"
+
+services:
+
+  # -------------------------------------------------------------------------
+  # FastAPI application
+  # -------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: check_yourself_api
+    ports:
+      - "8000:8000"
+    environment:
+      MONGODB_URL: mongodb://mongo:27017/check_yourself
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-supersecretkey}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      - mongo
+      - redis
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # -------------------------------------------------------------------------
+  # Celery worker
+  # -------------------------------------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: check_yourself_worker
+    environment:
+      MONGODB_URL: mongodb://mongo:27017/check_yourself
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./uploads:/app/uploads
+      - /var/run/docker.sock:/var/run/docker.sock  # allow worker to spawn sandbox containers
+    depends_on:
+      - mongo
+      - redis
+    restart: unless-stopped
+    command: celery -A app.worker.celery_app worker --loglevel=info --concurrency=4
+
+  # -------------------------------------------------------------------------
+  # MongoDB
+  # -------------------------------------------------------------------------
+  mongo:
+    image: mongo:7
+    container_name: check_yourself_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # Redis  (broker + result backend)
+  # -------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: check_yourself_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

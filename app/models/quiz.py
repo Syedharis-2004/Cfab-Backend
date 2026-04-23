@@ -1,14 +1,13 @@
-from sqlalchemy import Column, Integer, String
-from app.core.database import Base
+from beanie import Document
 
-class Quiz(Base):
-    __tablename__ = "quizzes"
+class Quiz(Document):
+    question: str
+    option_a: str
+    option_b: str
+    option_c: str
+    option_d: str
+    correct_answer: str # 'a', 'b', 'c', or 'd'
 
-    id = Column(Integer, primary_key=True, index=True)
-    question = Column(String)
-    option_a = Column(String)
-    option_b = Column(String)
-    option_c = Column(String)
-    option_d = Column(String)
-    correct_answer = Column(String) # 'a', 'b', 'c', or 'd'
+    class Settings:
+        name = "quizzes"
 

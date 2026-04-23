@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List
+from beanie import PydanticObjectId
 
 class QuizBase(BaseModel):
     question: str
@@ -12,13 +13,13 @@ class QuizCreate(QuizBase):
     correct_answer: str
 
 class Quiz(QuizBase):
-    id: int
+    id: PydanticObjectId
 
     class Config:
         from_attributes = True
 
 class QuizSubmission(BaseModel):
-    quiz_id: int
+    quiz_id: PydanticObjectId
     selected_answer: str
 
 class QuizResult(BaseModel):

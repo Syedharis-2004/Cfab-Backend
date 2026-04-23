@@ -1,10 +1,10 @@
-from sqlalchemy import Column, Integer, String
-from app.core.database import Base
+from beanie import Document, Indexed
+from typing import Optional
 
-class User(Base):
-    __tablename__ = "users"
+class User(Document):
+    name: str
+    email: Indexed(str, unique=True)
+    hashed_password: str
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
+    class Settings:
+        name = "users"

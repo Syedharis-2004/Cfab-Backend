@@ -1,0 +1,12 @@
+FROM python:3.9-slim
+
+# Create a non-privileged user to run the code
+RUN useradd -m sandboxuser
+USER sandboxuser
+
+WORKDIR /home/sandboxuser
+
+# The code will be mounted at /home/sandboxuser/solution.py
+# The evaluation script will be mounted or injected
+
+CMD ["python", "solution.py"]

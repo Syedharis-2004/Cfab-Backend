@@ -1,12 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
 from datetime import timedelta
 from jose import JWTError, jwt
 
 from app.core import security
 from app.core.config import settings
-from app.core.database import get_db
 from app.models.user import User
 from app.schemas.user import UserCreate, User as UserSchema
 from app.schemas.auth import Token, TokenData
@@ -15,7 +13,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
-async def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -29,14 +27,14 @@ async def get_current_user(db: Session = Depends(get_db), token: str = Depends(o
         token_data = TokenData(email=email)
     except JWTError:
         raise credentials_exception
-    user = db.query(User).filter(User.email == token_data.email).first()
+    user = await User.find_one(User.email == token_data.email)
     if user is None:
         raise credentials_exception
     return user
 
 @router.post("/register", response_model=UserSchema)
-def register(user_in: UserCreate, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == user_in.email).first()
+async def register(user_in: UserCreate):
+    user = await User.find_one(User.email == user_in.email)
     if user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
@@ -46,14 +44,12 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         name=user_in.name,
         hashed_password=hashed_password
     )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    await db_user.insert()
     return db_user
 
 @router.post("/login", response_model=Token)
-def login(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
-    user = db.query(User).filter(User.email == form_data.username).first()
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = await User.find_one(User.email == form_data.username)
     if not user or not security.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

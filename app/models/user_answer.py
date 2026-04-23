@@ -1,10 +1,9 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
-from app.core.database import Base
+from beanie import Document, PydanticObjectId
 
-class UserAnswer(Base):
-    __tablename__ = "user_answers"
+class UserAnswer(Document):
+    user_id: PydanticObjectId
+    quiz_id: PydanticObjectId
+    selected_answer: str
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    quiz_id = Column(Integer, ForeignKey("quizzes.id"))
-    selected_answer = Column(String)
+    class Settings:
+        name = "user_answers"
