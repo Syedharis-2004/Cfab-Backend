@@ -11,9 +11,10 @@ async def seed():
     await init_db()
     
     # Check if data already exists
-    if await User.find_one():
-        print("Database already seeded.")
-        return
+    if await Quiz.find_one():
+        print("Quizzes already exist, skipping quiz seeding.")
+    else:
+        print("Seeding new quizzes...")
 
     # Seed User
     user = User(

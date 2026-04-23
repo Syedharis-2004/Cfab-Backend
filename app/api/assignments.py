@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 from beanie import PydanticObjectId
 
-from app.api.auth import get_current_user
+from app.api.auth import get_current_user, get_admin_user
 from app.core.config import settings
 from app.models.assignment import Assignment, AssignmentType
 from app.models.test_case import TestCase
@@ -136,7 +136,7 @@ async def get_assignment(
 # ---------------------------------------------------------------------------
 
 @router.post("/upload", response_model=AssignmentSchema)
-async def upload_assignment(title: str, file: UploadFile = File(...)):
+async def upload_assignment(title: str, file: UploadFile = File(...), current_admin=Depends(get_admin_user)):
     """Admin endpoint: upload a PDF assignment."""
     if not os.path.exists(settings.UPLOAD_DIR):
         os.makedirs(settings.UPLOAD_DIR)
@@ -165,7 +165,7 @@ async def upload_assignment(title: str, file: UploadFile = File(...)):
 # ---------------------------------------------------------------------------
 
 @router.post("/coding", response_model=CodingAssignmentRead)
-async def create_coding_assignment(payload: CodingAssignmentCreate):
+async def create_coding_assignment(payload: CodingAssignmentCreate, current_admin=Depends(get_admin_user)):
     """Admin endpoint: create a coding assignment with test cases."""
     db_assignment = Assignment(
         title=payload.title,

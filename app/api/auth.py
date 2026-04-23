@@ -32,6 +32,14 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         raise credentials_exception
     return user
 
+async def get_admin_user(current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The user does not have enough privileges"
+        )
+    return current_user
+
 @router.post("/register", response_model=UserSchema)
 async def register(user_in: UserCreate):
     user = await User.find_one(User.email == user_in.email)
@@ -42,7 +50,8 @@ async def register(user_in: UserCreate):
     db_user = User(
         email=user_in.email,
         name=user_in.name,
-        hashed_password=hashed_password
+        hashed_password=hashed_password,
+        role=user_in.role
     )
     await db_user.insert()
     return db_user
