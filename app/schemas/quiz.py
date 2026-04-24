@@ -3,7 +3,7 @@ from typing import List, Optional
 from beanie import PydanticObjectId
 
 class QuestionBase(BaseModel):
-    id: str
+    id: Optional[PydanticObjectId] = None
     question: str
     option_a: str
     option_b: str
@@ -31,14 +31,14 @@ class QuizUpdate(BaseModel):
 
 class QuizResponse(QuizBase):
     id: PydanticObjectId
-    questions: List[QuestionResponse]
+    questions: List[QuestionResponse] = []
 
     class Config:
         from_attributes = True
 
 class QuizAdminResponse(QuizBase):
     id: PydanticObjectId
-    questions: List[QuestionAdminResponse]
+    questions: List[QuestionAdminResponse] = []
 
     class Config:
         from_attributes = True

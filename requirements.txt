@@ -1,8 +1,8 @@
-fastapi
-uvicorn
+fastapi==0.109.0
+uvicorn==0.27.0
 beanie
-motor
-pydantic
+motor~=3.1.0
+pydantic[email]
 pydantic-settings
 python-multipart
 python-jose[cryptography]
@@ -11,3 +11,5 @@ python-dotenv
 celery
 redis
 docker
+email-validator
+vine==5.0.0

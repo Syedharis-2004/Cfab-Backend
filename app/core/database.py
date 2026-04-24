@@ -8,7 +8,8 @@ logger = logging.getLogger(__name__)
 # List of all Beanie document models for initialization
 from app.models.user import User
 from app.models.assignment import Assignment
-from app.models.quiz import Quiz
+from app.models.coding_assignment import CodingAssignment
+from app.models.quiz import Quiz, QuizQuestion
 from app.models.user_answer import UserAnswer
 from app.models.test_case import TestCase
 from app.models.submission import Submission
@@ -22,7 +23,9 @@ async def init_db():
             document_models=[
                 User,
                 Assignment,
+                CodingAssignment,
                 Quiz,
+                QuizQuestion,
                 UserAnswer,
                 TestCase,
                 Submission,

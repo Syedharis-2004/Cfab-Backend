@@ -2,9 +2,8 @@ from fastapi import APIRouter, Depends
 from typing import List, Dict, Any
 from app.api.auth import get_current_user
 from app.models.assignment import Assignment
-from app.models.quiz import Quiz
+from app.models.quiz import Quiz, QuizQuestion
 from app.schemas.assignment import AssignmentListItem
-from app.schemas.quiz import QuizResponse
 from app.models.user import User
 
 router = APIRouter(prefix="/check-yourself", tags=["check-yourself"])
@@ -18,6 +17,15 @@ async def get_check_yourself_data(current_user: User = Depends(get_current_user)
     assignments = await Assignment.find_all().to_list()
     quizzes = await Quiz.find_all().to_list()
     
+    quiz_list = []
+    for q in quizzes:
+        count = await QuizQuestion.find(QuizQuestion.quiz_id == q.id).count()
+        quiz_list.append({
+            "id": str(q.id),
+            "title": q.title,
+            "question_count": count
+        })
+    
     return {
         "assignments": [
             AssignmentListItem(
@@ -27,11 +35,5 @@ async def get_check_yourself_data(current_user: User = Depends(get_current_user)
                 created_at=a.created_at
             ) for a in assignments
         ],
-        "quizzes": [
-            {
-                "id": str(q.id),
-                "title": q.title,
-                "question_count": len(q.questions)
-            } for q in quizzes
-        ]
+        "quizzes": quiz_list
     }

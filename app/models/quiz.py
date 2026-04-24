@@ -1,21 +1,21 @@
 from beanie import Document, PydanticObjectId
-from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
-class Question(BaseModel):
-    id: str
+class Quiz(Document):
+    title: str
+    created_by: PydanticObjectId
+
+    class Settings:
+        name = "quizzes"
+
+class QuizQuestion(Document):
+    quiz_id: PydanticObjectId
     question: str
     option_a: str
     option_b: str
     option_c: str
     option_d: str
-    correct_answer: str # 'a', 'b', 'c', or 'd'
-
-class Quiz(Document):
-    title: str
-    created_by: PydanticObjectId
-    questions: List[Question]
+    correct_answer: str # 'A', 'B', 'C', or 'D'
 
     class Settings:
-        name = "quizzes"
-
+        name = "quiz_questions"

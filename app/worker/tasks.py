@@ -33,7 +33,8 @@ async def _init_beanie_for_worker():
     """Initialize Beanie with all document models inside the worker process."""
     from app.models.user import User
     from app.models.assignment import Assignment
-    from app.models.quiz import Quiz
+    from app.models.coding_assignment import CodingAssignment
+    from app.models.quiz import Quiz, QuizQuestion
     from app.models.user_answer import UserAnswer
     from app.models.test_case import TestCase
     from app.models.submission import Submission
@@ -41,7 +42,7 @@ async def _init_beanie_for_worker():
     client = AsyncIOMotorClient(settings.MONGODB_URL)
     await init_beanie(
         database=client.get_default_database(),
-        document_models=[User, Assignment, Quiz, UserAnswer, TestCase, Submission],
+        document_models=[User, Assignment, CodingAssignment, Quiz, QuizQuestion, UserAnswer, TestCase, Submission],
     )
 
 
@@ -49,6 +50,7 @@ async def _evaluate(submission_id: str):
     """Core async evaluation logic."""
     from app.models.submission import Submission, SubmissionStatus
     from app.models.test_case import TestCase
+    from app.models.coding_assignment import CodingAssignment
 
     await _init_beanie_for_worker()
 
@@ -80,8 +82,14 @@ async def _evaluate(submission_id: str):
         for tc in test_cases
     ]
 
+    # Fetch function name if it exists
+    coding_meta = await CodingAssignment.find_one(
+        CodingAssignment.assignment_id == sub.assignment_id
+    )
+    function_name = coding_meta.function_name if coding_meta else None
+
     try:
-        result = evaluate_code(sub.code, tc_dicts)
+        result = evaluate_code(sub.code, tc_dicts, function_name)
     except SoftTimeLimitExceeded:
         sub.status = SubmissionStatus.TIME_LIMIT_EXCEEDED
         sub.error_message = "Execution exceeded the time limit."

@@ -34,13 +34,14 @@ class AssignmentBase(BaseModel):
 # --- PDF Assignment ---
 class PDFAssignmentCreate(AssignmentBase):
     assignment_type: AssignmentType = AssignmentType.PDF
-    pdf_path: str
+    file_path: str
 
 
 # --- Coding Assignment ---
 class CodingAssignmentCreate(AssignmentBase):
     assignment_type: AssignmentType = AssignmentType.CODING
     description: str
+    function_name: str
     starter_code: Optional[str] = None
     language: Optional[str] = "python"
     test_cases: List[TestCaseCreate] = []
@@ -61,7 +62,7 @@ class AssignmentListItem(BaseModel):
 class PDFAssignmentRead(AssignmentBase):
     """Full schema for a PDF assignment."""
     id: PydanticObjectId
-    pdf_path: Optional[str]
+    file_path: Optional[str]
     created_at: datetime
 
     class Config:
@@ -72,6 +73,7 @@ class CodingAssignmentRead(AssignmentBase):
     """Full schema for a coding assignment (includes test cases)."""
     id: PydanticObjectId
     description: Optional[str]
+    function_name: Optional[str]
     starter_code: Optional[str]
     language: Optional[str]
     created_at: datetime

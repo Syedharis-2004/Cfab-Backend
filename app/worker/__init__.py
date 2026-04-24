@@ -1,1 +1,1 @@
-# worker/__init__.py
+# app.worker package

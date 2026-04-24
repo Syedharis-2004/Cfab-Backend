@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Yourself | Learning Platform</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="dark-theme">
+    <div id="app">
+        <!-- Auth Section -->
+        <section id="auth-section" class="screen active">
+            <div class="glass-card auth-card">
+                <h1 class="gradient-text">Welcome Back</h1>
+                <p class="subtitle">Securely login to continue your journey</p>
+                <form id="login-form">
+                    <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" id="login-email" required placeholder="name@example.com">
+                    </div>
+                    <div class="input-group">
+                        <label>Password</label>
+                        <input type="password" id="login-password" required placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="btn-primary">Login</button>
+                </form>
+                <p class="toggle-text">Don't have an account? <span onclick="toggleAuth()">Register</span></p>
+            </div>
+        </section>
+
+        <!-- Dashboard Section -->
+        <section id="dashboard-section" class="screen">
+            <nav class="glass-nav">
+                <div class="logo gradient-text">Check Yourself</div>
+                <div class="nav-right">
+                    <span id="user-display">User Name</span>
+                    <button onclick="logout()" class="btn-outline">Logout</button>
+                </div>
+            </nav>
+            <main class="container">
+                <header class="dashboard-header">
+                    <h1>Your Progress</h1>
+                    <p>Select a module to test your knowledge</p>
+                </header>
+
+                <div class="grid">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h2>Assignments</h2>
+                            <span class="badge">Practice</span>
+                        </div>
+                        <div id="assignments-list" class="item-list">
+                            <!-- Populated via JS -->
+                            <div class="skeleton"></div>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h2>Quizzes</h2>
+                            <span class="badge">Tests</span>
+                        </div>
+                        <div id="quizzes-list" class="item-list">
+                            <!-- Populated via JS -->
+                            <div class="skeleton"></div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </section>
+
+        <!-- Quiz Attempt Section -->
+        <section id="quiz-section" class="screen">
+            <div class="container">
+                <button onclick="showDashboard()" class="btn-back">← Back to Dashboard</button>
+                <div id="quiz-container" class="glass-card quiz-card">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Assignment View Section -->
+        <section id="assignment-section" class="screen">
+            <div class="container">
+                <button onclick="showDashboard()" class="btn-back">← Back to Dashboard</button>
+                <div id="assignment-container" class="glass-card assignment-card">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Notifications -->
+    <div id="notification-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

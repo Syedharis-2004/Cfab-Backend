@@ -1,0 +1,1 @@
+{"title": "Sum Function Test", "description": "Create a function solve(n) that returns the sum of first n numbers.", "function_name": "solve", "test_cases": [{"input": "5", "expected_output": "15", "is_hidden": false}, {"input": "10", "expected_output": "55", "is_hidden": true}]}

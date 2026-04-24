@@ -1,8 +1,9 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.core.database import init_db
-from app.api import auth, check_yourself, assignments, quiz, admin_quiz
+from app.api import auth, check_yourself, assignments, quiz, admin_quiz, admin_assignments
 from app.api import submissions
 
 logging.basicConfig(
@@ -39,7 +40,11 @@ app.include_router(check_yourself.router)
 app.include_router(assignments.router)
 app.include_router(quiz.router)
 app.include_router(admin_quiz.router)
+app.include_router(admin_assignments.router)
 app.include_router(submissions.router)
+
+# Mount static files for frontend
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 
 @app.get("/")
