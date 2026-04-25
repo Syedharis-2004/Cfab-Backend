@@ -17,9 +17,19 @@ from app.models.submission import Submission
 
 async def init_db():
     try:
-        client = AsyncIOMotorClient(settings.MONGODB_URL)
+        if not settings.MONGODB_URL:
+            logger.error("MONGODB_URL is not set in environment variables.")
+            return
+
+        logger.info(f"Connecting to MongoDB...")
+        client = AsyncIOMotorClient(settings.MONGODB_URL, serverSelectionTimeoutMS=5000)
+        
         # Explicitly get database name from URL if possible
         db_name = settings.MONGODB_URL.split("/")[-1].split("?")[0] or "check_yourself"
+        
+        # Test connection
+        await client.server_info()
+        
         await init_beanie(
             database=client[db_name],
             document_models=[
@@ -33,7 +43,9 @@ async def init_db():
                 Submission,
             ]
         )
-        logger.info("Database initialized successfully.")
+        logger.info(f"Database '{db_name}' initialized successfully.")
     except Exception as e:
-        logger.error(f"Database initialization failed: {e}")
+        logger.error(f"Database initialization failed: {str(e)}")
+        # In a serverless environment, we might want to log but not necessarily crash the whole process 
+        # if the DB is temporarily down, though for this app it's critical.
         raise

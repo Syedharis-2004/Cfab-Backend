@@ -28,6 +28,7 @@ class TestCaseRead(TestCaseCreate):
 
 class AssignmentBase(BaseModel):
     title: str
+    description: Optional[str] = None
     assignment_type: AssignmentType = AssignmentType.PDF
 
 

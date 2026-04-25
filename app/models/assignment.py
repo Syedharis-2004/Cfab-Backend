@@ -14,6 +14,7 @@ class AssignmentType(str, Enum):
 
 class Assignment(Document):
     title: str
+    description: Optional[str] = None
     assignment_type: AssignmentType = AssignmentType.PDF
     file_path: Optional[str] = None # For PDF practice
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

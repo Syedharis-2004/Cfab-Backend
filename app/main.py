@@ -12,17 +12,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    logger.info("Application startup complete.")
+    yield
+
 app = FastAPI(
     title="Check Yourself API",
     description="Backend for the Check Yourself module — PDF assignments, quizzes, and coding practice.",
     version="2.0.0",
+    lifespan=lifespan
 )
-
-
-@app.on_event("startup")
-async def startup_event():
-    await init_db()
-    logger.info("Application startup complete.")
 
 
 # Configure CORS

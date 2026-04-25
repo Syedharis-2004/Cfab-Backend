@@ -3,7 +3,7 @@ import shutil
 import logging
 from typing import List, Union
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from beanie import PydanticObjectId
 
@@ -102,19 +102,47 @@ async def get_assignment(
         raise HTTPException(status_code=404, detail="Assignment not found")
 
     if assignment.assignment_type == AssignmentType.PDF:
-        if not assignment.file_path or not os.path.exists(assignment.file_path):
-            raise HTTPException(status_code=404, detail="PDF file not found on server")
-        return FileResponse(
-            assignment.file_path,
-            media_type="application/pdf",
-            filename=os.path.basename(assignment.file_path),
+        return PDFAssignmentRead(
+            id=assignment.id,
+            title=assignment.title,
+            description=assignment.description,
+            assignment_type=assignment.assignment_type,
+            file_path=assignment.file_path,
+            created_at=assignment.created_at
         )
 
     # Coding assignment
     return await _enrich_coding(assignment)
 
-@router.post("/upload", response_model=AssignmentListItem)
-async def upload_assignment(title: str, file: UploadFile = File(...), current_admin=Depends(get_admin_user)):
+@router.get("/{assignment_id}/file")
+async def get_assignment_file(
+    assignment_id: PydanticObjectId,
+    current_user=Depends(get_current_user),
+):
+    """Return the raw PDF file."""
+    assignment = await Assignment.get(assignment_id)
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    if assignment.assignment_type != AssignmentType.PDF:
+        raise HTTPException(status_code=400, detail="Not a PDF assignment")
+
+    if not assignment.file_path or not os.path.exists(assignment.file_path):
+        raise HTTPException(status_code=404, detail="PDF file not found on server")
+        
+    return FileResponse(
+        assignment.file_path,
+        media_type="application/pdf",
+        filename=os.path.basename(assignment.file_path),
+    )
+
+@router.post("/upload", response_model=PDFAssignmentRead)
+async def upload_assignment(
+    title: str = Form(...), 
+    description: Union[str, None] = Form(None),
+    file: UploadFile = File(...), 
+    current_admin=Depends(get_admin_user)
+):
     """Admin: upload a PDF assignment."""
     if not os.path.exists(settings.UPLOAD_DIR):
         os.makedirs(settings.UPLOAD_DIR)
@@ -125,6 +153,7 @@ async def upload_assignment(title: str, file: UploadFile = File(...), current_ad
 
     db_assignment = Assignment(
         title=title,
+        description=description,
         assignment_type=AssignmentType.PDF,
         file_path=file_path,
     )

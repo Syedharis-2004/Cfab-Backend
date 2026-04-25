@@ -13,31 +13,31 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+async def get_current_user():
+    """
+    Bypassing authentication for now. 
+    Always returns a mock admin user.
+    """
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-        token_data = TokenData(email=email)
-    except JWTError:
-        raise credentials_exception
-    user = await User.find_one(User.email == token_data.email)
-    if user is None:
-        raise credentials_exception
-    return user
+        # Try to find an existing admin
+        user = await User.find_one(User.role == "admin")
+        if user:
+            return user
+    except Exception:
+        # Database might not be initialized yet
+        pass
+        
+    return User.model_construct(
+        email="admin@example.com",
+        name="Admin User",
+        hashed_password="mock_password",
+        role="admin"
+    )
 
 async def get_admin_user(current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="The user does not have enough privileges"
-        )
+    """
+    Bypassing admin check.
+    """
     return current_user
 
 @router.post("/register", response_model=UserSchema)

@@ -181,18 +181,22 @@ async function openAssignment(id) {
             headers: { "Authorization": `Bearer ${token}` }
         });
         
-        // Handle PDF via direct blob or redirect
-        if (resp.headers.get("content-type") === "application/pdf") {
-            const blob = await resp.blob();
+        const assignment = await resp.json();
+
+        if (assignment.assignment_type === "pdf") {
+            const fileResp = await fetch(`${API_BASE}/assignments/${id}/file`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const blob = await fileResp.blob();
             const url = window.URL.createObjectURL(blob);
+            
             container.innerHTML = `
-                <h2>PDF Assignment</h2>
-                <iframe src="${url}" width="100%" height="600px"></iframe>
+                <h2 class="gradient-text">${assignment.title}</h2>
+                <div class="desc">${assignment.description || "No description provided."}</div>
+                <iframe src="${url}" width="100%" height="600px" style="margin-top:1rem; border: none; border-radius: var(--radius)"></iframe>
             `;
             return;
         }
-
-        const assignment = await resp.json();
         container.innerHTML = `
             <h2 class="gradient-text">${assignment.title}</h2>
             <div class="desc">${assignment.description || "No description provided."}</div>

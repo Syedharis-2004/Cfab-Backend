@@ -13,7 +13,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      MONGODB_URL: mongodb://mongo:27017/check_yourself
+      MONGODB_URL: ${MONGODB_URL}
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY:-supersecretkey}
       ALGORITHM: HS256
@@ -35,7 +35,7 @@ services:
       dockerfile: Dockerfile
     container_name: check_yourself_worker
     environment:
-      MONGODB_URL: mongodb://mongo:27017/check_yourself
+      MONGODB_URL: ${MONGODB_URL}
       REDIS_URL: redis://redis:6379/0
     volumes:
       - ./uploads:/app/uploads
