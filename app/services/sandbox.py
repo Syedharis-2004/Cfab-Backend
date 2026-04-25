@@ -12,17 +12,23 @@ MEMORY_LIMIT = "128m"
 CPU_QUOTA = 50000  # 50% of 1 CPU
 SANDBOX_IMAGE = "python-sandbox:latest"
 
-try:
-    client = docker.from_env()
-except Exception as e:
-    logger.warning(f"Docker not available: {e}. Coding sandbox will fail if Docker is not started.")
-    client = None
+_client = None
+
+def get_docker_client():
+    global _client
+    if _client is None:
+        try:
+            _client = docker.from_env()
+        except Exception as e:
+            logger.warning(f"Docker not available: {e}. Coding sandbox will fail if Docker is not started.")
+    return _client
 
 def run_code_in_sandbox(code: str, stdin_input: str, function_name: str = None) -> Tuple[bool, str, str]:
     """
     Execute *code* inside a secure Docker container.
     If function_name is provided, it wraps the code to call that specific function.
     """
+    client = get_docker_client()
     if client is None:
         return False, "", "Docker service not available on host."
 
@@ -106,6 +112,8 @@ except Exception as e:
                 container.remove(force=True)
             except:
                 pass
+        finally:
+            pass # placeholder
 
     except Exception as exc:
         logger.error("Sandbox execution failed: %s", exc)
