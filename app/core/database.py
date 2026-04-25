@@ -14,22 +14,19 @@ from app.models.user_answer import UserAnswer
 from app.models.test_case import TestCase
 from app.models.submission import Submission
 
-
 async def init_db():
     try:
         if not settings.MONGODB_URL:
             logger.error("MONGODB_URL is not set in environment variables.")
             return
 
-        logger.info(f"Connecting to MongoDB...")
-        client = AsyncIOMotorClient(settings.MONGODB_URL, serverSelectionTimeoutMS=5000)
+        # Use a short timeout for the initial connection attempt
+        client = AsyncIOMotorClient(settings.MONGODB_URL, serverSelectionTimeoutMS=2000)
         
-        # Explicitly get database name from URL if possible
         db_name = settings.MONGODB_URL.split("/")[-1].split("?")[0] or "check_yourself"
         
-        # Test connection
-        await client.server_info()
-        
+        # Initialize Beanie without explicitly waiting for the server
+        # This prevents the 10s Vercel timeout from killing the function if DB is slow
         await init_beanie(
             database=client[db_name],
             document_models=[
@@ -43,9 +40,7 @@ async def init_db():
                 Submission,
             ]
         )
-        logger.info(f"Database '{db_name}' initialized successfully.")
+        logger.info(f"Beanie initialized for database '{db_name}'.")
     except Exception as e:
         logger.error(f"Database initialization failed: {str(e)}")
-        # In a serverless environment, we might want to log but not necessarily crash the whole process 
-        # if the DB is temporarily down, though for this app it's critical.
-        raise
+        # We don't raise here to allow the app to at least start and show /health
