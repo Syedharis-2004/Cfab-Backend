@@ -46,8 +46,8 @@ app.include_router(admin_quiz.router)
 app.include_router(admin_assignments.router)
 app.include_router(submissions.router)
 
-# Mount static files for frontend
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
+# # Mount static files for frontend
+# app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 
 @app.get("/")
