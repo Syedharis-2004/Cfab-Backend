@@ -18,8 +18,10 @@ from app.models.submission import Submission
 async def init_db():
     try:
         client = AsyncIOMotorClient(settings.MONGODB_URL)
+        # Explicitly get database name from URL if possible
+        db_name = settings.MONGODB_URL.split("/")[-1].split("?")[0] or "check_yourself"
         await init_beanie(
-            database=client.get_default_database(),
+            database=client[db_name],
             document_models=[
                 User,
                 Assignment,
