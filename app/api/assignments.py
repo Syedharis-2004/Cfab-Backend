@@ -63,7 +63,10 @@ async def _enrich_coding(assignment: Assignment) -> CodingAssignmentRead:
 
 @router.get("", response_model=List[AssignmentListItem])
 async def get_assignments(current_user=Depends(get_current_user)):
-    """Return a lightweight list of all assignments."""
+    """
+    Retrieve a list of all assignments (both PDF and Coding types).
+    Returns basic metadata only.
+    """
     assignments = await Assignment.find_all().to_list()
     return [
         AssignmentListItem(
@@ -77,7 +80,9 @@ async def get_assignments(current_user=Depends(get_current_user)):
 
 @router.get("/search", response_model=List[AssignmentListItem])
 async def search_assignments(title: str, current_user=Depends(get_current_user)):
-    """Search assignments by title."""
+    """
+    Search for assignments by title using a case-insensitive keyword search.
+    """
     assignments = await Assignment.find(
         {"title": {"$regex": title, "$options": "i"}}
     ).to_list()
@@ -96,7 +101,11 @@ async def get_assignment(
     assignment_id: PydanticObjectId,
     current_user=Depends(get_current_user),
 ):
-    """Return assignment detail."""
+    """
+    Retrieve the full details of an assignment.
+    For PDF assignments, it returns metadata and the file path.
+    For Coding assignments, it returns the problem description and visible test cases.
+    """
     assignment = await Assignment.get(assignment_id)
     if not assignment:
         raise HTTPException(status_code=404, detail="Assignment not found")
@@ -143,7 +152,10 @@ async def upload_assignment(
     file: UploadFile = File(...), 
     current_admin=Depends(get_admin_user)
 ):
-    """Admin: upload a PDF assignment."""
+    """
+    Admin: Upload a new practice assignment in PDF format.
+    The file is stored on the server and its metadata is saved to the database.
+    """
     if not os.path.exists(settings.UPLOAD_DIR):
         os.makedirs(settings.UPLOAD_DIR)
 

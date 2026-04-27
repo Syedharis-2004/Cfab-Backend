@@ -25,11 +25,18 @@ async def _get_quiz_response(quiz: Quiz) -> QuizResponse:
 
 @router.get("", response_model=List[QuizResponse])
 async def list_quizzes(current_user: User = Depends(get_current_user)):
+    """
+    Fetch a list of all available interactive quizzes.
+    Includes questions and multiple-choice options (but not correct answers).
+    """
     quizzes = await Quiz.find_all().to_list()
     return [await _get_quiz_response(q) for q in quizzes]
 
 @router.get("/{id}", response_model=QuizResponse)
 async def get_quiz(id: str, current_user: User = Depends(get_current_user)):
+    """
+    Retrieve details for a specific quiz by its ID.
+    """
     quiz = await Quiz.get(id)
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
@@ -37,6 +44,10 @@ async def get_quiz(id: str, current_user: User = Depends(get_current_user)):
 
 @router.post("/{id}/submit", response_model=QuizResult)
 async def submit_quiz(id: str, attempt: QuizAttempt, current_user: User = Depends(get_current_user)):
+    """
+    Submit answers for a quiz attempt.
+    Calculates the score and returns the final percentage.
+    """
     quiz = await Quiz.get(id)
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")

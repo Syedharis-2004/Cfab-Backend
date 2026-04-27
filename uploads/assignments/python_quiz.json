@@ -1,0 +1,115 @@
+{
+  "title": "Python Quiz (Multiple Choice Questions)",
+  "questions": [
+    {
+      "id": 1,
+      "question": "What is the correct file extension for Python files?",
+      "options": [
+        "A) .pt",
+        "B) .py",
+        "C) .pyt",
+        "D) .python"
+      ],
+      "answer": "B"
+    },
+    {
+      "id": 2,
+      "question": "Which keyword is used to define a function in Python?",
+      "options": [
+        "A) func",
+        "B) define",
+        "C) def",
+        "D) function"
+      ],
+      "answer": "C"
+    },
+    {
+      "id": 3,
+      "question": "What is the output of: print(2 ** 3)?",
+      "options": [
+        "A) 6",
+        "B) 8",
+        "C) 9",
+        "D) 5"
+      ],
+      "answer": "B"
+    },
+    {
+      "id": 4,
+      "question": "Which data type is immutable?",
+      "options": [
+        "A) List",
+        "B) Dictionary",
+        "C) Set",
+        "D) Tuple"
+      ],
+      "answer": "D"
+    },
+    {
+      "id": 5,
+      "question": "What does len() function do?",
+      "options": [
+        "A) Counts elements",
+        "B) Adds elements",
+        "C) Deletes elements",
+        "D) Sorts elements"
+      ],
+      "answer": "A"
+    },
+    {
+      "id": 6,
+      "question": "Which symbol is used for comments in Python?",
+      "options": [
+        "A) //",
+        "B) (missing)",
+        "C) #",
+        "D) /* */"
+      ],
+      "answer": "C"
+    },
+    {
+      "id": 7,
+      "question": "What is the output of: type(10)?",
+      "options": [
+        "A) int",
+        "B) float",
+        "C) str",
+        "D) bool"
+      ],
+      "answer": "A"
+    },
+    {
+      "id": 8,
+      "question": "Which loop is used when the number of iterations is known?",
+      "options": [
+        "A) while",
+        "B) for",
+        "C) do-while",
+        "D) loop"
+      ],
+      "answer": "B"
+    },
+    {
+      "id": 9,
+      "question": "Which method adds an element to a list?",
+      "options": [
+        "A) insert()",
+        "B) append()",
+        "C) add()",
+        "D) push()"
+      ],
+      "answer": "B"
+    },
+    {
+      "id": 10,
+      "question": "What is a correct way to create a dictionary?",
+      "options": [
+        "A) {1,2,3}",
+        "B) [1:2, 3:4]",
+        "C) {\"a\":1, \"b\":2}",
+        "D) (1,2,3)"
+      ],
+      "answer": "C"
+    }
+  ]
+}

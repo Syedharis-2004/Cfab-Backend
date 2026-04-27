@@ -39,7 +39,7 @@ services:
       REDIS_URL: redis://redis:6379/0
     volumes:
       - ./uploads:/app/uploads
-      - /var/run/docker.sock:/var/run/docker.sock  # allow worker to spawn sandbox containers
+      - //var/run/docker.sock:/var/run/docker.sock  # allow worker to spawn sandbox containers
     depends_on:
       - mongo
       - redis

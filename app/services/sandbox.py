@@ -3,6 +3,7 @@ import tempfile
 import os
 import shutil
 import logging
+import io
 from typing import Tuple
 
 logger = logging.getLogger(__name__)
@@ -17,10 +18,30 @@ _client = None
 def get_docker_client():
     global _client
     if _client is None:
+        # Try different connection methods
+        # 1. Standard Unix socket (common in Linux containers)
+        # 2. Environment variables
+        # 3. Windows Named Pipe
+        for base_url in [None, 'unix:///var/run/docker.sock', 'npipe:////./pipe/docker_engine']:
+            try:
+                if base_url:
+                    c = docker.DockerClient(base_url=base_url)
+                else:
+                    c = docker.from_env()
+                c.ping()
+                _client = c
+                break
+            except Exception:
+                continue
+        
+        if _client is None:
+            logger.error("Could not connect to Docker daemon using any method.")
+    else:
         try:
-            _client = docker.from_env()
-        except Exception as e:
-            logger.warning(f"Docker not available: {e}. Coding sandbox will fail if Docker is not started.")
+            _client.ping()
+        except Exception:
+            _client = None
+            return get_docker_client()
     return _client
 
 def run_code_in_sandbox(code: str, stdin_input: str, function_name: str = None) -> Tuple[bool, str, str]:
@@ -82,17 +103,31 @@ except Exception as e:
         with open(input_path, "w", encoding="utf-8") as f:
             f.write(stdin_input)
 
-        # Run container
-        container = client.containers.run(
+        # Run container (create but don't start yet so we can put files)
+        container = client.containers.create(
             image=SANDBOX_IMAGE,
             command=cmd,
-            volumes={temp_dir: {'bind': '/home/sandboxuser', 'mode': 'ro'}},
             working_dir='/home/sandboxuser',
             mem_limit=MEMORY_LIMIT,
             cpu_quota=CPU_QUOTA,
             network_disabled=True,
-            detach=True
+            user=0 # Run as root to ensure we can write to /home/sandboxuser if needed
         )
+
+        # Create tarball of the temp directory
+        import tarfile
+        tar_stream = io.BytesIO()
+        with tarfile.open(fileobj=tar_stream, mode='w') as tar:
+            for filename in os.listdir(temp_dir):
+                filepath = os.path.join(temp_dir, filename)
+                tar.add(filepath, arcname=filename)
+        tar_stream.seek(0)
+        
+        # Put files in container
+        container.put_archive('/home/sandboxuser', tar_stream)
+        
+        # Start container
+        container.start()
 
         # Wait for completion with timeout
         try:
@@ -112,8 +147,6 @@ except Exception as e:
                 container.remove(force=True)
             except:
                 pass
-        finally:
-            pass # placeholder
 
     except Exception as exc:
         logger.error("Sandbox execution failed: %s", exc)

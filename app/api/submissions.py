@@ -19,7 +19,7 @@ from app.schemas.submission import SubmissionCreate, SubmissionRead, SubmissionS
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/coding-assignments", tags=["coding-assignments"])
+router = APIRouter(prefix="/practice-code", tags=["practice-code"])
 
 
 # ---------------------------------------------------------------------------
@@ -88,7 +88,7 @@ async def submit_code(
 # GET /coding-assignments/submissions/{id}  — poll result
 # ---------------------------------------------------------------------------
 
-@router.get("/submissions/{submission_id}", response_model=SubmissionStatusResponse)
+@router.get("/{submission_id}", response_model=SubmissionStatusResponse)
 async def get_submission_status(
     submission_id: PydanticObjectId,
     current_user=Depends(get_current_user),
@@ -117,7 +117,7 @@ async def get_submission_status(
 # GET /coding-assignments/submissions/{id}/code  — full submission with code
 # ---------------------------------------------------------------------------
 
-@router.get("/submissions/{submission_id}/code", response_model=SubmissionRead)
+@router.get("/{submission_id}/code", response_model=SubmissionRead)
 async def get_submission_detail(
     submission_id: PydanticObjectId,
     current_user=Depends(get_current_user),
@@ -135,7 +135,7 @@ async def get_submission_detail(
 # GET /coding-assignments/my-submissions  — list user's own submissions
 # ---------------------------------------------------------------------------
 
-@router.get("/my-submissions", response_model=List[SubmissionStatusResponse])
+@router.get("/me/list", response_model=List[SubmissionStatusResponse])
 async def list_my_submissions(
     current_user=Depends(get_current_user),
     limit: int = 20,

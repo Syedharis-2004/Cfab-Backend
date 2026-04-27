@@ -42,6 +42,10 @@ async def get_admin_user(current_user: User = Depends(get_current_user)):
 
 @router.post("/register", response_model=UserSchema)
 async def register(user_in: UserCreate):
+    """
+    Create a new user account.
+    Requires email, name, password, and optionally a role (default: student).
+    """
     user = await User.find_one(User.email == user_in.email)
     if user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -58,6 +62,10 @@ async def register(user_in: UserCreate):
 
 @router.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    """
+    Authenticate a user and return a JWT access token.
+    Uses standard OAuth2 password flow (username/password).
+    """
     user = await User.find_one(User.email == form_data.username)
     if not user or not security.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(

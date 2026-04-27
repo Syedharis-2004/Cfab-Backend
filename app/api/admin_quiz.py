@@ -28,6 +28,9 @@ async def _get_admin_quiz_response(quiz: Quiz) -> QuizAdminResponse:
 
 @router.post("/manual", response_model=QuizAdminResponse)
 async def create_quiz_manual(quiz_in: QuizCreate, current_admin: User = Depends(get_admin_user)):
+    """
+    Admin: Manually create a quiz by providing the full JSON structure including all questions and answers.
+    """
     quiz = Quiz(
         title=quiz_in.title,
         created_by=current_admin.id
@@ -49,6 +52,10 @@ async def upload_quiz(
     file: UploadFile = File(...),
     current_admin: User = Depends(get_admin_user)
 ):
+    """
+    Admin: Bulk upload quiz questions using a JSON, CSV, or PDF file.
+    The system automatically parses the file and creates a new quiz.
+    """
     questions_data = []
     content = await file.read()
     
@@ -91,6 +98,9 @@ async def upload_quiz(
 
 @router.put("/{id}", response_model=QuizAdminResponse)
 async def update_quiz(id: str, quiz_in: QuizUpdate, current_admin: User = Depends(get_admin_user)):
+    """
+    Admin: Update an existing quiz's title or replace its entire question bank.
+    """
     quiz = await Quiz.get(id)
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
@@ -113,6 +123,9 @@ async def update_quiz(id: str, quiz_in: QuizUpdate, current_admin: User = Depend
 
 @router.delete("/{id}")
 async def delete_quiz(id: str, current_admin: User = Depends(get_admin_user)):
+    """
+    Admin: Permanently delete a quiz and all its associated questions.
+    """
     quiz = await Quiz.get(id)
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")

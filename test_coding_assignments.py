@@ -87,11 +87,12 @@ print(f"  [OK] Visible TCs : {len(detail.get('test_cases', []))}")
 # ---------------------------------------------------------------------------
 # 4. Submit CORRECT code
 # ---------------------------------------------------------------------------
-header("4. POST /coding-assignments/submit (correct code)")
+header("4. POST /practice-code/submit (correct code)")
 
-CORRECT_CODE = "a, b = map(int, input().split())\nprint(a + b)\n"
+# The seeder expects a function called 'solve' and receives arguments as a list
+CORRECT_CODE = "def solve(args):\n    a, b = args\n    return a + b\n"
 r = requests.post(
-    f"{BASE}/coding-assignments/submit",
+    f"{BASE}/practice-code/submit",
     json={"assignment_id": assignment_id, "code": CORRECT_CODE, "language": "python"},
     headers=headers,
 )
@@ -103,11 +104,11 @@ print(f"  [OK] Initial status: {sub['status']}")
 
 
 # ---------------------------------------------------------------------------
-# 5. Poll for result
+# 5. Polling submission status
 # ---------------------------------------------------------------------------
 header("5. Polling submission status")
 for attempt in range(15):
-    r = requests.get(f"{BASE}/coding-assignments/submissions/{sub_id}", headers=headers)
+    r = requests.get(f"{BASE}/practice-code/{sub_id}", headers=headers)
     assert r.status_code == 200
     status_data = r.json()
     status = status_data["status"]
@@ -126,10 +127,10 @@ if status_data.get("error_message"):
 # ---------------------------------------------------------------------------
 # 6. Submit WRONG code
 # ---------------------------------------------------------------------------
-header("6. POST /coding-assignments/submit (wrong code)")
-WRONG_CODE = "print('wrong answer')\n"
+header("6. POST /practice-code/submit (wrong code)")
+WRONG_CODE = "def solve(args):\n    return 0\n"
 r = requests.post(
-    f"{BASE}/coding-assignments/submit",
+    f"{BASE}/practice-code/submit",
     json={"assignment_id": assignment_id, "code": WRONG_CODE, "language": "python"},
     headers=headers,
 )
@@ -138,7 +139,7 @@ sub2_id = r.json()["id"]
 print(f"  [OK] Submission ID: {sub2_id}")
 
 for attempt in range(15):
-    r = requests.get(f"{BASE}/coding-assignments/submissions/{sub2_id}", headers=headers)
+    r = requests.get(f"{BASE}/practice-code/{sub2_id}", headers=headers)
     result2 = r.json()
     if result2["status"] not in ("pending", "running"):
         break
@@ -152,8 +153,8 @@ print(f"  Passed       : {result2['passed_cases']}/{result2['total_cases']}")
 # ---------------------------------------------------------------------------
 # 7. My submissions
 # ---------------------------------------------------------------------------
-header("7. GET /coding-assignments/my-submissions")
-r = requests.get(f"{BASE}/coding-assignments/my-submissions", headers=headers)
+header("7. GET /practice-code/me/list")
+r = requests.get(f"{BASE}/practice-code/me/list", headers=headers)
 assert r.status_code == 200
 my_subs = r.json()
 print(f"  [OK] Total submissions for user: {len(my_subs)}")

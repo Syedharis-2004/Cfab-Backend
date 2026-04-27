@@ -26,5 +26,5 @@ celery_app.conf.update(
     task_time_limit=90,        # hard kill after 90 s
     task_acks_late=True,       # re-queue if worker crashes mid-task
     worker_prefetch_multiplier=1,  # fair dispatch
-    task_always_eager=True,    # Run tasks synchronously locally without Redis
+    task_always_eager=False,    # Send tasks to the worker via Redis
 )
