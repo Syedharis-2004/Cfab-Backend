@@ -23,9 +23,7 @@ async def init_db():
 
     try:
         if not settings.MONGODB_URL:
-            logger.error("MONGODB_URL is missing. Please set MONGODB_URL or DATABASE_URL in environment variables.")
-            # We don't raise here yet, but we log it clearly
-            return
+            raise ValueError("MONGODB_URL is missing. Please set MONGODB_URL or DATABASE_URL in environment variables.")
 
         # Use a slightly longer timeout for Vercel cold starts
         client = AsyncIOMotorClient(

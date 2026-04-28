@@ -18,8 +18,12 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
-    logger.info("Application startup complete.")
+    try:
+        await init_db()
+        logger.info("Application startup: Database initialized via lifespan.")
+    except Exception as e:
+        logger.warning(f"Application startup: Database initialization failed in lifespan (will retry in middleware): {e}")
+    
     yield
 
 app = FastAPI(
