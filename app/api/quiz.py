@@ -5,8 +5,7 @@ from app.api.auth import get_current_user
 from app.models.quiz import Quiz, QuizQuestion
 from app.models.user_answer import UserAnswer
 from app.schemas.quiz import (
-    QuizResponse, QuizAttempt, QuizResult,
-    QuestionResponse, QuestionResult
+    QuizResponse, QuestionResponse, QuizSubmitRequest
 )
 from app.models.user import User
 
@@ -21,7 +20,10 @@ async def _get_quiz_response(quiz: Quiz) -> QuizResponse:
             QuestionResponse(
                 id=q.id,
                 question=q.question,
-                options=q.options,
+                option_a=q.option_a,
+                option_b=q.option_b,
+                option_c=q.option_c,
+                option_d=q.option_d,
             )
             for q in questions
         ],
@@ -46,17 +48,16 @@ async def get_quiz(id: str, current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Quiz not found")
     return await _get_quiz_response(quiz)
 
-@router.post("/{id}/submit", response_model=QuizResult)
+@router.post("/submit")
 async def submit_quiz(
-    id: str,
-    attempt: QuizAttempt,
+    submission: QuizSubmitRequest,
     current_user: User = Depends(get_current_user),
 ):
     """
     Submit answers for a quiz.
-    `selected_option` should be the exact text of the chosen option.
+    Input matches the requested format: {quiz_id, answers: [{question_id, selected}]}
     """
-    quiz = await Quiz.get(id)
+    quiz = await Quiz.get(submission.quiz_id)
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
 
@@ -68,48 +69,18 @@ async def submit_quiz(
 
     score = 0
     total = len(questions)
-    breakdown: List[QuestionResult] = []
 
-    for answer in attempt.answers:
+    for answer in submission.answers:
         q = question_map.get(str(answer.question_id))
         if not q:
             continue
 
-        selected = answer.selected_option.strip()
-        correct = q.correct_answer.strip()
-        is_correct = selected == correct
-
-        if is_correct:
+        if answer.selected.upper() == q.correct_answer.upper():
             score += 1
 
-        # Save record
-        ua = UserAnswer(
-            user_id=current_user.id,
-            quiz_id=quiz.id,
-            question_id=q.id,
-            selected_answer=selected,
-            correct_answer=correct,
-            is_correct=is_correct,
-        )
-        await ua.insert()
+    return {
+        "score": score,
+        "total": total
+    }
 
-        breakdown.append(
-            QuestionResult(
-                question_id=str(q.id),
-                question_text=q.question,
-                options=q.options,
-                selected_option=selected,
-                correct_option=correct,
-                is_correct=is_correct,
-            )
-        )
 
-    percentage = round((score / total * 100), 2) if total > 0 else 0.0
-
-    return QuizResult(
-        score=score,
-        total=total,
-        percentage=percentage,
-        passed=percentage >= 50,
-        breakdown=breakdown,
-    )

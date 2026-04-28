@@ -7,53 +7,36 @@ from beanie import PydanticObjectId
 #  Admin-facing  (include correct answer)
 # ─────────────────────────────────────────────────────────────────────────────
 
-class QuestionCreate(BaseModel):
-    """Schema used when an admin creates / uploads questions."""
+class QuestionCreateRequest(BaseModel):
     question: str
-    options: List[str]   # ["var", "let", "const", "All of the above"]
-    correct: str         # Must be the EXACT text of one of the options
+    option_a: str
+    option_b: str
+    option_c: str
+    option_d: str
+    correct_answer: str
 
-    @validator("correct")
-    def correct_must_be_in_options(cls, v, values):
-        options = values.get("options", [])
-        if v not in options:
-            raise ValueError(
-                f"'correct' must exactly match one of the options. "
-                f"Got '{v}' but options are {options}"
-            )
-        return v
+    @validator("correct_answer")
+    def validate_correct_answer(cls, v):
+        if v.upper() not in ["A", "B", "C", "D"]:
+            raise ValueError("correct_answer must be one of A, B, C, or D")
+        return v.upper()
 
-    @validator("options")
-    def at_least_two_options(cls, v):
-        if len(v) < 2:
-            raise ValueError("A question must have at least 2 options.")
-        return v
-
+class QuizCreateRequest(BaseModel):
+    title: str
+    questions: List[QuestionCreateRequest]
 
 class QuestionAdminResponse(BaseModel):
     """Question data returned to admins — includes the correct answer."""
     id: Optional[PydanticObjectId] = None
     question: str
-    options: List[str]
+    option_a: str
+    option_b: str
+    option_c: str
+    option_d: str
     correct: str
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  Quiz-level admin schemas
-# ─────────────────────────────────────────────────────────────────────────────
 
 class QuizBase(BaseModel):
     title: str
-
-
-class QuizCreate(QuizBase):
-    questions: List[QuestionCreate]
-
-
-class QuizUpdate(BaseModel):
-    title: Optional[str] = None
-    questions: Optional[List[QuestionCreate]] = None
-
 
 class QuizAdminResponse(QuizBase):
     id: PydanticObjectId
@@ -62,17 +45,14 @@ class QuizAdminResponse(QuizBase):
     class Config:
         from_attributes = True
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  User-facing  (correct answer hidden)
-# ─────────────────────────────────────────────────────────────────────────────
-
 class QuestionResponse(BaseModel):
     """Question data returned to regular users — NO correct answer."""
     id: Optional[PydanticObjectId] = None
     question: str
-    options: List[str]   # ["var", "let", "const", "All of the above"]
-
+    option_a: str
+    option_b: str
+    option_c: str
+    option_d: str
 
 class QuizResponse(QuizBase):
     id: PydanticObjectId
@@ -81,38 +61,16 @@ class QuizResponse(QuizBase):
     class Config:
         from_attributes = True
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  Submission
-# ─────────────────────────────────────────────────────────────────────────────
-
-class AnswerAttempt(BaseModel):
+class AnswerSubmitRequest(BaseModel):
     question_id: str
-    selected_option: str   # The EXACT text of the option the user picked
+    selected: str
 
+    @validator("selected")
+    def validate_selected(cls, v):
+        if v.upper() not in ["A", "B", "C", "D"]:
+            raise ValueError("selected answer must be one of A, B, C, or D")
+        return v.upper()
 
-class QuizAttempt(BaseModel):
-    answers: List[AnswerAttempt]
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  Result  (returned after submission)
-# ─────────────────────────────────────────────────────────────────────────────
-
-class QuestionResult(BaseModel):
-    """Per-question result breakdown."""
-    question_id: str
-    question_text: str
-    options: List[str]
-    selected_option: str    # What the user picked
-    correct_option: str     # What was correct
-    is_correct: bool
-
-
-class QuizResult(BaseModel):
-    """Full result returned after quiz submission."""
-    score: int            # Number of correct answers
-    total: int            # Total questions in quiz
-    percentage: float     # Score as percentage
-    passed: bool          # True if >= 50%
-    breakdown: List[QuestionResult]
+class QuizSubmitRequest(BaseModel):
+    quiz_id: PydanticObjectId
+    answers: List[AnswerSubmitRequest]
