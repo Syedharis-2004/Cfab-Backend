@@ -45,12 +45,29 @@ class QuizAdminResponse(QuizBase):
 
 class AnswerAttempt(BaseModel):
     question_id: str
-    selected_answer: str
+    selected_answer: str  # Must be A, B, C, or D
 
 class QuizAttempt(BaseModel):
     answers: List[AnswerAttempt]
 
+# --- Detailed Result Schemas ---
+
+class QuestionResult(BaseModel):
+    """Per-question breakdown returned after quiz submission."""
+    question_id: str
+    question_text: str
+    your_answer: str           # What user chose
+    correct_answer: str        # What was correct
+    is_correct: bool           # Did user get it right?
+    option_a: str
+    option_b: str
+    option_c: str
+    option_d: str
+
 class QuizResult(BaseModel):
-    score: int
-    total: int
-    percentage: float
+    """Full result returned after submitting a quiz."""
+    score: int                        # Number of correct answers
+    total: int                        # Total number of questions
+    percentage: float                 # Score percentage
+    passed: bool                      # True if >= 50%
+    breakdown: List[QuestionResult]   # Per-question detail

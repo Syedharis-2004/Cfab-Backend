@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
+from beanie import PydanticObjectId
 from app.api.auth import get_current_user
 from app.models.quiz import Quiz, QuizQuestion
 from app.models.user_answer import UserAnswer
-from app.schemas.quiz import QuizResponse, QuizAttempt, QuizResult, QuestionResponse
+from app.schemas.quiz import QuizResponse, QuizAttempt, QuizResult, QuestionResponse, QuestionResult
 from app.models.user import User
 
 router = APIRouter(prefix="/quiz", tags=["quiz"])
@@ -27,7 +28,7 @@ async def _get_quiz_response(quiz: Quiz) -> QuizResponse:
 async def list_quizzes(current_user: User = Depends(get_current_user)):
     """
     Fetch a list of all available interactive quizzes.
-    Includes questions and multiple-choice options (but not correct answers).
+    Includes questions and multiple-choice options (but NOT correct answers).
     """
     quizzes = await Quiz.find_all().to_list()
     return [await _get_quiz_response(q) for q in quizzes]
@@ -36,6 +37,7 @@ async def list_quizzes(current_user: User = Depends(get_current_user)):
 async def get_quiz(id: str, current_user: User = Depends(get_current_user)):
     """
     Retrieve details for a specific quiz by its ID.
+    Returns questions and options — correct answers are hidden from users.
     """
     quiz = await Quiz.get(id)
     if not quiz:
@@ -46,43 +48,78 @@ async def get_quiz(id: str, current_user: User = Depends(get_current_user)):
 async def submit_quiz(id: str, attempt: QuizAttempt, current_user: User = Depends(get_current_user)):
     """
     Submit answers for a quiz attempt.
-    Calculates the score and returns the final percentage.
+
+    - Compares each user answer against the stored correct answer
+    - Returns full per-question breakdown: your answer, correct answer, and is_correct
+    - Returns total score, percentage, and pass/fail status (pass = 50%+)
+    
+    **Request body example:**
+    ```json
+    {
+      "answers": [
+        {"question_id": "<id>", "selected_answer": "A"},
+        {"question_id": "<id>", "selected_answer": "C"}
+      ]
+    }
+    ```
     """
     quiz = await Quiz.get(id)
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
-    
+
     questions = await QuizQuestion.find(QuizQuestion.quiz_id == quiz.id).to_list()
     if not questions:
-         raise HTTPException(status_code=400, detail="Quiz has no questions")
+        raise HTTPException(status_code=400, detail="This quiz has no questions.")
+
+    # Build a fast lookup: question_id -> QuizQuestion object
+    question_map = {str(q.id): q for q in questions}
 
     score = 0
     total = len(questions)
-    
-    # Map questions for easier lookup
-    question_map = {str(q.id): q.correct_answer.upper() for q in questions}
-    
+    breakdown = []
+
     for answer in attempt.answers:
-        correct_val = question_map.get(str(answer.question_id))
-        if correct_val and answer.selected_answer.upper() == correct_val:
+        q = question_map.get(str(answer.question_id))
+        if not q:
+            # Skip unknown question IDs gracefully
+            continue
+
+        user_choice = answer.selected_answer.strip().upper()
+        correct_choice = q.correct_answer.strip().upper()
+        is_correct = (user_choice == correct_choice)
+
+        if is_correct:
             score += 1
-        
-        # Save individual answers as per DB design: UserAnswers: id, user_id, quiz_id, selected_answer
-        # Note: The DB design lists selected_answer, which might be per question. 
-        # Requirement says UserAnswers: id, user_id, quiz_id, selected_answer. 
-        # Usually this implies per question if it's many-to-one with Quiz.
-        # I'll store them for record.
+
+        # Save per-question answer to DB for history/review
         ua = UserAnswer(
             user_id=current_user.id,
             quiz_id=quiz.id,
-            selected_answer=answer.selected_answer
+            question_id=q.id,
+            selected_answer=user_choice,
+            correct_answer=correct_choice,
+            is_correct=is_correct,
         )
         await ua.insert()
-    
-    percentage = (score / total * 100) if total > 0 else 0
-    
-    return {
-        "score": score,
-        "total": total,
-        "percentage": round(percentage, 2)
-    }
+
+        breakdown.append(QuestionResult(
+            question_id=str(q.id),
+            question_text=q.question,
+            your_answer=user_choice,
+            correct_answer=correct_choice,
+            is_correct=is_correct,
+            option_a=q.option_a,
+            option_b=q.option_b,
+            option_c=q.option_c,
+            option_d=q.option_d,
+        ))
+
+    percentage = round((score / total * 100), 2) if total > 0 else 0.0
+
+    return QuizResult(
+        score=score,
+        total=total,
+        percentage=percentage,
+        passed=percentage >= 50,
+        breakdown=breakdown,
+    )
