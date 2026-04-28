@@ -14,19 +14,32 @@ from app.models.user_answer import UserAnswer
 from app.models.test_case import TestCase
 from app.models.submission import Submission
 
+_db_initialized = False
+
 async def init_db():
+    global _db_initialized
+    if _db_initialized:
+        return
+
     try:
         if not settings.MONGODB_URL:
-            logger.error("MONGODB_URL is not set in environment variables.")
+            logger.error("MONGODB_URL is missing. Please set MONGODB_URL or DATABASE_URL in environment variables.")
+            # We don't raise here yet, but we log it clearly
             return
 
-        # Use a short timeout for the initial connection attempt
-        client = AsyncIOMotorClient(settings.MONGODB_URL, serverSelectionTimeoutMS=2000)
+        # Use a slightly longer timeout for Vercel cold starts
+        client = AsyncIOMotorClient(
+            settings.MONGODB_URL, 
+            serverSelectionTimeoutMS=5000,
+            connectTimeoutMS=10000
+        )
         
-        db_name = settings.MONGODB_URL.split("/")[-1].split("?")[0] or "check_yourself"
+        # Extract db name from URL or use default
+        try:
+            db_name = settings.MONGODB_URL.split("/")[-1].split("?")[0] or "check_yourself"
+        except:
+            db_name = "check_yourself"
         
-        # Initialize Beanie without explicitly waiting for the server
-        # This prevents the 10s Vercel timeout from killing the function if DB is slow
         await init_beanie(
             database=client[db_name],
             document_models=[
@@ -40,7 +53,10 @@ async def init_db():
                 Submission,
             ]
         )
-        logger.info(f"Beanie initialized for database '{db_name}'.")
+        _db_initialized = True
+        logger.info(f"Beanie initialized successfully for database '{db_name}'.")
     except Exception as e:
-        logger.error(f"Database initialization failed: {str(e)}")
-        # We don't raise here to allow the app to at least start and show /health
+        logger.error(f"CRITICAL: Database initialization failed: {str(e)}")
+        # On Vercel, it's better to let it fail so we can catch it in middleware
+        _db_initialized = False
+        raise e

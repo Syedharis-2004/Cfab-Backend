@@ -1,5 +1,7 @@
 import logging
-from fastapi import FastAPI
+import traceback
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.core.database import init_db
@@ -38,8 +40,36 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
+# Global Exception Handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    error_msg = str(exc)
+    stack_trace = traceback.format_exc()
+    logger.error(f"Unhandled Exception: {error_msg}\n{stack_trace}")
+    
+    # In production, you might want to hide the stack trace, 
+    # but for debugging the 500 error on Vercel, we need more info.
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal Server Error",
+            "message": error_msg,
+            "type": type(exc).__name__
+        }
+    )
+
 @app.middleware("http")
-async def add_cors_headers(request, call_next):
+async def ensure_db_initialized(request: Request, call_next):
+    # Skip DB init for health check and root
+    if request.url.path not in ["/health", "/", "/docs", "/openapi.json"]:
+        try:
+            await init_db()
+        except Exception as e:
+            return JSONResponse(
+                status_code=503,
+                content={"detail": f"Database connection error: {str(e)}"}
+            )
+    
     response = await call_next(request)
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"

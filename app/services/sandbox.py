@@ -16,6 +16,11 @@ SANDBOX_IMAGE = "python-sandbox:latest"
 _client = None
 
 def get_docker_client():
+    # Docker is not available in Vercel serverless environment
+    if os.getenv("VERCEL"):
+        logger.warning("Running on Vercel: Docker sandbox is disabled.")
+        return None
+
     global _client
     if _client is None:
         # Try different connection methods
