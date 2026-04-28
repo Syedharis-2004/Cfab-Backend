@@ -5,11 +5,19 @@ import csv
 import io
 from app.api.auth import get_admin_user
 from app.models.quiz import Quiz, QuizQuestion
-from app.schemas.quiz import QuizCreate, QuizAdminResponse, QuizUpdate, QuestionCreate, QuestionAdminResponse
+from app.schemas.quiz import QuizCreate, QuizAdminResponse, QuizUpdate, QuestionCreate, QuestionAdminResponse, OptionItem
 from app.models.user import User
 from app.services.pdf_parser import parse_quiz_pdf, PDF_SUPPORT
 
 router = APIRouter(prefix="/admin/quiz", tags=["admin-quiz"])
+
+def _build_options(q: QuizQuestion) -> List[OptionItem]:
+    return [
+        OptionItem(key="A", text=q.option_a),
+        OptionItem(key="B", text=q.option_b),
+        OptionItem(key="C", text=q.option_c),
+        OptionItem(key="D", text=q.option_d),
+    ]
 
 async def _get_admin_quiz_response(quiz: Quiz) -> QuizAdminResponse:
     questions = await QuizQuestion.find(QuizQuestion.quiz_id == quiz.id).to_list()
@@ -19,10 +27,7 @@ async def _get_admin_quiz_response(quiz: Quiz) -> QuizAdminResponse:
         questions=[QuestionAdminResponse(
             id=q.id,
             question=q.question,
-            option_a=q.option_a,
-            option_b=q.option_b,
-            option_c=q.option_c,
-            option_d=q.option_d,
+            options=_build_options(q),
             correct_answer=q.correct_answer
         ) for q in questions]
     )

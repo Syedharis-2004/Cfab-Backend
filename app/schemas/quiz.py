@@ -2,22 +2,34 @@ from pydantic import BaseModel
 from typing import List, Optional
 from beanie import PydanticObjectId
 
-class QuestionBase(BaseModel):
-    id: Optional[PydanticObjectId] = None
+
+# ─────────────────────────────────────────────
+#  Option  (A / B / C / D  labelled choice)
+# ─────────────────────────────────────────────
+
+class OptionItem(BaseModel):
+    """A single labelled option shown to the user."""
+    key: str    # "A", "B", "C", or "D"
+    text: str   # The actual option text
+
+
+# ─────────────────────────────────────────────
+#  Admin-facing schemas  (include correct answer)
+# ─────────────────────────────────────────────
+
+class QuestionCreate(BaseModel):
     question: str
     option_a: str
     option_b: str
     option_c: str
     option_d: str
+    correct_answer: str   # Must be "A", "B", "C", or "D"
 
-class QuestionCreate(QuestionBase):
-    correct_answer: str
-
-class QuestionResponse(QuestionBase):
-    pass
-
-class QuestionAdminResponse(QuestionBase):
-    correct_answer: str
+class QuestionAdminResponse(BaseModel):
+    id: Optional[PydanticObjectId] = None
+    question: str
+    options: List[OptionItem]
+    correct_answer: str   # "A" / "B" / "C" / "D"
 
 class QuizBase(BaseModel):
     title: str
@@ -29,13 +41,6 @@ class QuizUpdate(BaseModel):
     title: Optional[str] = None
     questions: Optional[List[QuestionCreate]] = None
 
-class QuizResponse(QuizBase):
-    id: PydanticObjectId
-    questions: List[QuestionResponse] = []
-
-    class Config:
-        from_attributes = True
-
 class QuizAdminResponse(QuizBase):
     id: PydanticObjectId
     questions: List[QuestionAdminResponse] = []
@@ -43,31 +48,56 @@ class QuizAdminResponse(QuizBase):
     class Config:
         from_attributes = True
 
+
+# ─────────────────────────────────────────────
+#  User-facing schemas  (correct answer hidden)
+# ─────────────────────────────────────────────
+
+class QuestionResponse(BaseModel):
+    """Question returned to a regular user — NO correct answer."""
+    id: Optional[PydanticObjectId] = None
+    question: str
+    options: List[OptionItem]   # [{"key": "A", "text": "..."}, ...]
+
+class QuizResponse(QuizBase):
+    id: PydanticObjectId
+    questions: List[QuestionResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+# ─────────────────────────────────────────────
+#  Submission / attempt
+# ─────────────────────────────────────────────
+
 class AnswerAttempt(BaseModel):
     question_id: str
-    selected_answer: str  # Must be A, B, C, or D
+    selected_option: str   # "A", "B", "C", or "D"
 
 class QuizAttempt(BaseModel):
     answers: List[AnswerAttempt]
 
-# --- Detailed Result Schemas ---
+
+# ─────────────────────────────────────────────
+#  Result schemas  (returned after submission)
+# ─────────────────────────────────────────────
 
 class QuestionResult(BaseModel):
-    """Per-question breakdown returned after quiz submission."""
+    """Per-question result breakdown."""
     question_id: str
     question_text: str
-    your_answer: str           # What user chose
-    correct_answer: str        # What was correct
-    is_correct: bool           # Did user get it right?
-    option_a: str
-    option_b: str
-    option_c: str
-    option_d: str
+    options: List[OptionItem]
+    selected_option: str        # e.g. "B"
+    selected_option_text: str   # e.g. "London"
+    correct_option: str         # e.g. "A"
+    correct_option_text: str    # e.g. "Paris"
+    is_correct: bool
 
 class QuizResult(BaseModel):
-    """Full result returned after submitting a quiz."""
-    score: int                        # Number of correct answers
-    total: int                        # Total number of questions
-    percentage: float                 # Score percentage
-    passed: bool                      # True if >= 50%
-    breakdown: List[QuestionResult]   # Per-question detail
+    """Full result returned after quiz submission."""
+    score: int          # Number of correct answers
+    total: int          # Total questions
+    percentage: float   # Score as percentage
+    passed: bool        # True if >= 50%
+    breakdown: List[QuestionResult]
