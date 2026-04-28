@@ -5,19 +5,11 @@ import csv
 import io
 from app.api.auth import get_admin_user
 from app.models.quiz import Quiz, QuizQuestion
-from app.schemas.quiz import QuizCreate, QuizAdminResponse, QuizUpdate, QuestionCreate, QuestionAdminResponse, OptionItem
+from app.schemas.quiz import QuizCreate, QuizAdminResponse, QuizUpdate, QuestionAdminResponse
 from app.models.user import User
 from app.services.pdf_parser import parse_quiz_pdf, PDF_SUPPORT
 
 router = APIRouter(prefix="/admin/quiz", tags=["admin-quiz"])
-
-def _build_options(q: QuizQuestion) -> List[OptionItem]:
-    return [
-        OptionItem(key="A", text=q.option_a),
-        OptionItem(key="B", text=q.option_b),
-        OptionItem(key="C", text=q.option_c),
-        OptionItem(key="D", text=q.option_d),
-    ]
 
 async def _get_admin_quiz_response(quiz: Quiz) -> QuizAdminResponse:
     questions = await QuizQuestion.find(QuizQuestion.quiz_id == quiz.id).to_list()
@@ -27,15 +19,16 @@ async def _get_admin_quiz_response(quiz: Quiz) -> QuizAdminResponse:
         questions=[QuestionAdminResponse(
             id=q.id,
             question=q.question,
-            options=_build_options(q),
-            correct_answer=q.correct_answer
+            options=q.options,
+            correct=q.correct_answer
         ) for q in questions]
     )
 
 @router.post("/manual", response_model=QuizAdminResponse)
 async def create_quiz_manual(quiz_in: QuizCreate, current_admin: User = Depends(get_admin_user)):
     """
-    Admin: Manually create a quiz by providing the full JSON structure including all questions and answers.
+    Admin: Manually create a quiz.
+    Questions use 'options' (list) and 'correct' (text).
     """
     quiz = Quiz(
         title=quiz_in.title,
@@ -46,7 +39,9 @@ async def create_quiz_manual(quiz_in: QuizCreate, current_admin: User = Depends(
     for q in quiz_in.questions:
         question = QuizQuestion(
             quiz_id=quiz.id,
-            **q.dict()
+            question=q.question,
+            options=q.options,
+            correct_answer=q.correct
         )
         await question.insert()
         
@@ -59,26 +54,8 @@ async def upload_quiz(
     current_admin: User = Depends(get_admin_user)
 ):
     """
-    Admin: Bulk upload quiz questions using a JSON, CSV, or PDF file.
-    
-    **Supported Formats:**
-    
-    - **JSON**: List of question objects with fields: question, option_a, option_b, option_c, option_d, correct_answer
-    - **CSV**: Columns: question, option_a, option_b, option_c, option_d, correct_answer
-    - **PDF**: Structured MCQ format (see below)
-    
-    **PDF Format Required:**
-    ```
-    1. Question text here?
-    A) Option A text
-    B) Option B text
-    C) Option C text
-    D) Option D text
-    Answer: A
-    
-    2. Next question?
-    ...
-    ```
+    Admin: Bulk upload quiz questions.
+    JSON/CSV must follow the new format: options as list/columns, correct as text.
     """
     questions_data = []
     content = await file.read()
@@ -87,51 +64,27 @@ async def upload_quiz(
     if filename.endswith('.json'):
         try:
             questions_data = json.loads(content)
-            if not isinstance(questions_data, list):
-                raise HTTPException(status_code=400, detail="JSON must be a list of question objects.")
         except json.JSONDecodeError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON format: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
 
     elif filename.endswith('.csv'):
+        # For CSV, we assume columns: question, options (comma separated), correct
         try:
             stream = io.StringIO(content.decode("utf-8"))
             reader = csv.DictReader(stream)
             for row in reader:
-                questions_data.append(dict(row))
+                row['options'] = [o.strip() for o in row['options'].split(',')]
+                questions_data.append(row)
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid CSV format: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Invalid CSV: {str(e)}")
 
     elif filename.endswith('.pdf'):
         if not PDF_SUPPORT:
-            raise HTTPException(
-                status_code=501,
-                detail="PDF parsing is not available. The pdfplumber library is not installed."
-            )
-        try:
-            questions_data = parse_quiz_pdf(content)
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to parse PDF: {str(e)}")
+            raise HTTPException(status_code=501, detail="PDF support not available.")
+        questions_data = parse_quiz_pdf(content)
 
     else:
-        raise HTTPException(
-            status_code=400,
-            detail="Unsupported file format. Please upload a JSON, CSV, or PDF file."
-        )
-
-    if not questions_data:
-        raise HTTPException(status_code=400, detail="No questions found in the uploaded file.")
-
-    # Validate required fields in all questions
-    required_fields = {"question", "option_a", "option_b", "option_c", "option_d", "correct_answer"}
-    for i, q_data in enumerate(questions_data):
-        missing = required_fields - set(q_data.keys())
-        if missing:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Question #{i+1} is missing required fields: {', '.join(missing)}"
-            )
+        raise HTTPException(status_code=400, detail="Unsupported format.")
 
     quiz = Quiz(
         title=title,
@@ -140,54 +93,47 @@ async def upload_quiz(
     await quiz.insert()
     
     for q_data in questions_data:
+        # Map to model fields
         question = QuizQuestion(
             quiz_id=quiz.id,
             question=q_data['question'],
-            option_a=q_data['option_a'],
-            option_b=q_data['option_b'],
-            option_c=q_data['option_c'],
-            option_d=q_data['option_d'],
-            correct_answer=q_data['correct_answer'].upper()
+            options=q_data.get('options') or [q_data['option_a'], q_data['option_b'], q_data['option_c'], q_data['option_d']],
+            correct_answer=q_data.get('correct') or q_data.get('correct_answer')
         )
+        # If it was an old format upload (A/B/C/D), we try to resolve it
+        if not q_data.get('options') and 'correct_answer' in q_data:
+            mapping = {"A": q_data['option_a'], "B": q_data['option_b'], "C": q_data['option_c'], "D": q_data['option_d']}
+            question.correct_answer = mapping.get(q_data['correct_answer'].upper(), q_data['correct_answer'])
+
         await question.insert()
         
     return await _get_admin_quiz_response(quiz)
 
 @router.put("/{id}", response_model=QuizAdminResponse)
 async def update_quiz(id: str, quiz_in: QuizUpdate, current_admin: User = Depends(get_admin_user)):
-    """
-    Admin: Update an existing quiz's title or replace its entire question bank.
-    """
     quiz = await Quiz.get(id)
-    if not quiz:
-        raise HTTPException(status_code=404, detail="Quiz not found")
+    if not quiz: raise HTTPException(status_code=404, detail="Quiz not found")
     
     if quiz_in.title:
         quiz.title = quiz_in.title
         await quiz.save()
         
     if quiz_in.questions is not None:
-        # Delete existing questions and replace them
         await QuizQuestion.find(QuizQuestion.quiz_id == quiz.id).delete()
         for q in quiz_in.questions:
-            question = QuizQuestion(
+            await QuizQuestion(
                 quiz_id=quiz.id,
-                **q.dict()
-            )
-            await question.insert()
+                question=q.question,
+                options=q.options,
+                correct_answer=q.correct
+            ).insert()
     
     return await _get_admin_quiz_response(quiz)
 
 @router.delete("/{id}")
 async def delete_quiz(id: str, current_admin: User = Depends(get_admin_user)):
-    """
-    Admin: Permanently delete a quiz and all its associated questions.
-    """
     quiz = await Quiz.get(id)
-    if not quiz:
-        raise HTTPException(status_code=404, detail="Quiz not found")
-    
-    # Delete associated questions
+    if not quiz: raise HTTPException(status_code=404, detail="Quiz not found")
     await QuizQuestion.find(QuizQuestion.quiz_id == quiz.id).delete()
     await quiz.delete()
-    return {"message": "Quiz deleted successfully"}
+    return {"message": "Deleted"}

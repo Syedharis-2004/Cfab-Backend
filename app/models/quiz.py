@@ -1,5 +1,6 @@
 from beanie import Document, PydanticObjectId
-from typing import List, Optional
+from typing import List
+
 
 class Quiz(Document):
     title: str
@@ -8,14 +9,12 @@ class Quiz(Document):
     class Settings:
         name = "quizzes"
 
+
 class QuizQuestion(Document):
     quiz_id: PydanticObjectId
     question: str
-    option_a: str
-    option_b: str
-    option_c: str
-    option_d: str
-    correct_answer: str # 'A', 'B', 'C', or 'D'
+    options: List[str]       # e.g. ["var", "let", "const", "All of the above"]
+    correct_answer: str      # exact text of the correct option, e.g. "const"
 
     class Settings:
         name = "quiz_questions"
