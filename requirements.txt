@@ -16,3 +16,5 @@ email-validator
 vine==5.0.0
 dnspython
 gunicorn
+certifi
+pymongo[srv]
