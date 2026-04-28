@@ -7,6 +7,7 @@ from app.api.auth import get_admin_user
 from app.models.quiz import Quiz, QuizQuestion
 from app.schemas.quiz import QuizCreate, QuizAdminResponse, QuizUpdate, QuestionCreate, QuestionAdminResponse
 from app.models.user import User
+from app.services.pdf_parser import parse_quiz_pdf, PDF_SUPPORT
 
 router = APIRouter(prefix="/admin/quiz", tags=["admin-quiz"])
 
@@ -54,27 +55,78 @@ async def upload_quiz(
 ):
     """
     Admin: Bulk upload quiz questions using a JSON, CSV, or PDF file.
-    The system automatically parses the file and creates a new quiz.
+    
+    **Supported Formats:**
+    
+    - **JSON**: List of question objects with fields: question, option_a, option_b, option_c, option_d, correct_answer
+    - **CSV**: Columns: question, option_a, option_b, option_c, option_d, correct_answer
+    - **PDF**: Structured MCQ format (see below)
+    
+    **PDF Format Required:**
+    ```
+    1. Question text here?
+    A) Option A text
+    B) Option B text
+    C) Option C text
+    D) Option D text
+    Answer: A
+    
+    2. Next question?
+    ...
+    ```
     """
     questions_data = []
     content = await file.read()
-    
-    if file.filename.endswith('.json'):
+    filename = file.filename.lower()
+
+    if filename.endswith('.json'):
         try:
             questions_data = json.loads(content)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
-            
-    elif file.filename.endswith('.csv'):
+            if not isinstance(questions_data, list):
+                raise HTTPException(status_code=400, detail="JSON must be a list of question objects.")
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON format: {str(e)}")
+
+    elif filename.endswith('.csv'):
         try:
             stream = io.StringIO(content.decode("utf-8"))
             reader = csv.DictReader(stream)
             for row in reader:
-                questions_data.append(row)
+                questions_data.append(dict(row))
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid CSV: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Invalid CSV format: {str(e)}")
+
+    elif filename.endswith('.pdf'):
+        if not PDF_SUPPORT:
+            raise HTTPException(
+                status_code=501,
+                detail="PDF parsing is not available. The pdfplumber library is not installed."
+            )
+        try:
+            questions_data = parse_quiz_pdf(content)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to parse PDF: {str(e)}")
+
     else:
-        raise HTTPException(status_code=400, detail="Unsupported file format. Use JSON or CSV.")
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file format. Please upload a JSON, CSV, or PDF file."
+        )
+
+    if not questions_data:
+        raise HTTPException(status_code=400, detail="No questions found in the uploaded file.")
+
+    # Validate required fields in all questions
+    required_fields = {"question", "option_a", "option_b", "option_c", "option_d", "correct_answer"}
+    for i, q_data in enumerate(questions_data):
+        missing = required_fields - set(q_data.keys())
+        if missing:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Question #{i+1} is missing required fields: {', '.join(missing)}"
+            )
 
     quiz = Quiz(
         title=title,
@@ -90,7 +142,7 @@ async def upload_quiz(
             option_b=q_data['option_b'],
             option_c=q_data['option_c'],
             option_d=q_data['option_d'],
-            correct_answer=q_data['correct_answer']
+            correct_answer=q_data['correct_answer'].upper()
         )
         await question.insert()
         

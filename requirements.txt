@@ -18,3 +18,4 @@ dnspython
 gunicorn
 certifi
 pymongo[srv]
+pdfplumber
