@@ -156,6 +156,9 @@ async def upload_assignment(
     Admin: Upload a new practice assignment in PDF format.
     The file is stored on the server and its metadata is saved to the database.
     """
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+
     if not os.path.exists(settings.UPLOAD_DIR):
         os.makedirs(settings.UPLOAD_DIR)
 
@@ -202,4 +205,34 @@ async def create_coding_assignment(payload: CodingAssignmentCreate, current_admi
         await db_tc.insert()
         created_tcs.append(db_tc)
 
+
     return await _enrich_coding(db_assignment)
+
+
+@router.delete("/{assignment_id}")
+async def delete_assignment(
+    assignment_id: PydanticObjectId,
+    current_admin=Depends(get_admin_user),
+):
+    """Admin: Delete an assignment and its associated file/metadata."""
+    assignment = await Assignment.get(assignment_id)
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    if assignment.assignment_type == AssignmentType.PDF:
+        # Delete file from disk
+        if assignment.file_path and os.path.exists(assignment.file_path):
+            try:
+                os.remove(assignment.file_path)
+            except Exception as e:
+                logger.error(f"Error deleting file {assignment.file_path}: {e}")
+    
+    elif assignment.assignment_type == AssignmentType.CODING:
+        # Delete coding metadata and test cases
+        await CodingAssignment.find(CodingAssignment.assignment_id == assignment.id).delete()
+        await TestCase.find(TestCase.assignment_id == assignment.id).delete()
+        # Also could delete submissions, but usually better to keep them or handle cascade
+        # For now, let's just delete the main assignment record and its metadata
+
+    await assignment.delete()
+    return {"message": "Assignment deleted successfully"}

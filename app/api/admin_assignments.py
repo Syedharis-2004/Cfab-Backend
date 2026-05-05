@@ -77,3 +77,36 @@ async def upload_coding_assignment(
         "assignment_id": str(assignment.id),
         "test_case_count": len(data["test_cases"])
     }
+    
+
+@router.delete("/{assignment_id}")
+async def delete_coding_assignment(
+    assignment_id: str,
+    current_admin: User = Depends(get_admin_user)
+):
+    """
+    Admin deletes a coding assignment and all its related data.
+    """
+    from beanie import PydanticObjectId
+    try:
+        obj_id = PydanticObjectId(assignment_id)
+    except:
+        raise HTTPException(status_code=400, detail="Invalid assignment ID")
+
+    assignment = await Assignment.get(obj_id)
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+
+    # Delete related data
+    await CodingAssignment.find(CodingAssignment.assignment_id == assignment.id).delete()
+    await TestCase.find(TestCase.assignment_id == assignment.id).delete()
+    
+    # Optional: Delete submissions
+    from app.models.submission import Submission
+    await Submission.find(Submission.assignment_id == assignment.id).delete()
+
+    await assignment.delete()
+    
+    logger.info(f"Coding assignment {assignment_id} deleted by admin {current_admin.email}")
+    
+    return {"message": "Coding assignment deleted successfully"}

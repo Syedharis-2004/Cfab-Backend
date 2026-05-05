@@ -48,7 +48,8 @@ def parse_mcq_from_text(text: str) -> List[Dict[str, Any]]:
             questions.append({
                 "question": current_question,
                 "options": options_list,
-                "correct": correct_text
+                "correct": correct_text,
+                "correct_label": current_answer_label
             })
         current_question = None
         current_options = {}
