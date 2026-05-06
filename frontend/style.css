@@ -284,3 +284,131 @@ body::after {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
 }
+
+/* Study Plan Specific Styles */
+.study-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+    margin-top: 1rem;
+}
+
+.study-plan-card {
+    padding: 2rem;
+}
+
+.progress-bar-container {
+    background: rgba(255, 255, 255, 0.1);
+    height: 12px;
+    border-radius: 6px;
+    margin: 1.5rem 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #a855f7);
+    transition: width 0.5s ease;
+}
+
+#plan-progress-text {
+    position: absolute;
+    right: 0;
+    top: -25px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.day-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.day-card {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.day-card h3 {
+    margin-bottom: 1rem;
+    color: #a855f7;
+    font-size: 1.1rem;
+}
+
+.lecture-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.85rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+    margin-bottom: 0.6rem;
+    border: 1px solid transparent;
+}
+
+.lecture-item.completed {
+    opacity: 0.5;
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.lecture-item.completed h4 {
+    text-decoration: line-through;
+}
+
+.day-input-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-top: 1rem;
+    margin-bottom: 2rem;
+}
+
+.day-input-grid div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.day-input-grid label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.day-input-grid input {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    color: white;
+}
+
+.btn-complete {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.btn-complete:disabled {
+    background: #064e3b;
+    cursor: default;
+}
+
+@media (max-width: 900px) {
+    .study-grid {
+        grid-template-columns: 1fr;
+    }
+    .day-input-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}

@@ -35,6 +35,7 @@
                 <div class="logo gradient-text">Check Yourself</div>
                 <div class="nav-right">
                     <span id="user-display">User Name</span>
+                    <button onclick="showAdmin()" class="btn-outline">Admin Panel</button>
                     <button onclick="logout()" class="btn-outline">Logout</button>
                 </div>
             </nav>
@@ -66,6 +67,17 @@
                             <div class="skeleton"></div>
                         </div>
                     </div>
+
+                    <div class="section-card">
+                        <div class="section-header">
+                            <h2>Study Plans</h2>
+                            <span class="badge">Planning</span>
+                        </div>
+                        <div id="study-list" class="item-list">
+                            <!-- Populated via JS -->
+                            <div class="skeleton"></div>
+                        </div>
+                    </div>
                 </div>
             </main>
         </section>
@@ -86,6 +98,95 @@
                 <button onclick="showDashboard()" class="btn-back">← Back to Dashboard</button>
                 <div id="assignment-container" class="glass-card assignment-card">
                     <!-- Populated via JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Study Plan View Section -->
+        <section id="study-section" class="screen">
+            <div class="container">
+                <button onclick="showDashboard()" class="btn-back">← Back to Dashboard</button>
+                <div id="study-container" class="study-grid">
+                    <div class="glass-card study-plan-card">
+                        <h2 id="plan-course-title">Study Plan</h2>
+                        <div class="progress-bar-container">
+                            <div id="plan-progress" class="progress-bar" style="width: 0%"></div>
+                            <span id="plan-progress-text">0% Completed</span>
+                        </div>
+                        <div id="day-wise-plan" class="day-list">
+                            <!-- Day wise lectures -->
+                        </div>
+                    </div>
+                    <div class="glass-card start-course-card" id="start-course-form" style="display: none;">
+                        <h2>Start Course</h2>
+                        <p>Set your daily study goals to generate a plan.</p>
+                        <div class="input-group">
+                            <label>Daily Minutes</label>
+                            <input type="number" id="daily-minutes" value="30">
+                        </div>
+                        <div class="availability-inputs">
+                            <label>Weekly Schedule (Mins per day)</label>
+                            <div class="day-input-grid">
+                                <div><label>Mon</label><input type="number" id="avail-mon" value="60"></div>
+                                <div><label>Tue</label><input type="number" id="avail-tue" value="60"></div>
+                                <div><label>Wed</label><input type="number" id="avail-wed" value="60"></div>
+                                <div><label>Thu</label><input type="number" id="avail-thu" value="60"></div>
+                                <div><label>Fri</label><input type="number" id="avail-fri" value="60"></div>
+                                <div><label>Sat</label><input type="number" id="avail-sat" value="0"></div>
+                                <div><label>Sun</label><input type="number" id="avail-sun" value="0"></div>
+                            </div>
+                        </div>
+                        <button onclick="generatePlan()" class="btn-primary">Generate My Plan</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Admin Section -->
+        <section id="admin-section" class="screen">
+            <div class="container">
+                <button onclick="showDashboard()" class="btn-back">← Back to Dashboard</button>
+                <div class="grid">
+                    <div class="glass-card">
+                        <h2>Create Course</h2>
+                        <form id="course-form">
+                            <div class="input-group">
+                                <label>Course Title</label>
+                                <input type="text" id="course-title" required>
+                            </div>
+                            <div class="input-group">
+                                <label>Description</label>
+                                <textarea id="course-desc"></textarea>
+                            </div>
+                            <button type="submit" class="btn-primary">Create Course</button>
+                        </form>
+                    </div>
+                    <div class="glass-card">
+                        <h2>Upload Lecture</h2>
+                        <form id="lecture-form">
+                            <div class="input-group">
+                                <label>Course ID</label>
+                                <input type="text" id="lect-course-id" required>
+                            </div>
+                            <div class="input-group">
+                                <label>Lecture Title</label>
+                                <input type="text" id="lect-title" required>
+                            </div>
+                            <div class="input-group">
+                                <label>Video URL</label>
+                                <input type="text" id="lect-url" required>
+                            </div>
+                            <div class="input-group">
+                                <label>Duration (Mins)</label>
+                                <input type="number" id="lect-duration" required>
+                            </div>
+                            <div class="input-group">
+                                <label>Order Index</label>
+                                <input type="number" id="lect-order" required>
+                            </div>
+                            <button type="submit" class="btn-primary">Upload Lecture</button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </section>

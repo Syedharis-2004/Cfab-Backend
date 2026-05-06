@@ -19,7 +19,7 @@ from app.schemas.submission import SubmissionCreate, SubmissionRead, SubmissionS
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/practice-code", tags=["practice-code"])
+router = APIRouter(prefix="/coding-assignments", tags=["coding-assignments"])
 
 
 # ---------------------------------------------------------------------------
@@ -88,7 +88,7 @@ async def submit_code(
 # GET /coding-assignments/submissions/{id}  — poll result
 # ---------------------------------------------------------------------------
 
-@router.get("/{submission_id}", response_model=SubmissionStatusResponse)
+@router.get("/submissions/{submission_id}", response_model=SubmissionStatusResponse)
 async def get_submission_status(
     submission_id: PydanticObjectId,
     current_user=Depends(get_current_user),

@@ -63,14 +63,14 @@ class QuizResponse(QuizBase):
 
 class AnswerSubmitRequest(BaseModel):
     question_id: str
-    selected: str
+    selected_answer: str
 
-    @validator("selected")
+    @validator("selected_answer")
     def validate_selected(cls, v):
         if v.upper() not in ["A", "B", "C", "D"]:
             raise ValueError("selected answer must be one of A, B, C, or D")
         return v.upper()
 
 class QuizSubmitRequest(BaseModel):
-    quiz_id: PydanticObjectId
+    quiz_id: Optional[PydanticObjectId] = None
     answers: List[AnswerSubmitRequest]

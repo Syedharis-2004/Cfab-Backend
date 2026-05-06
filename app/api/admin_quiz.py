@@ -57,6 +57,7 @@ async def create_quiz(quiz_in: QuizCreateRequest, current_admin: User = Depends(
     return await _get_admin_quiz_response(quiz)
 
 
+@router.post("/upload", response_model=QuizAdminResponse)
 @router.post("/upload-pdf", response_model=QuizAdminResponse)
 async def upload_quiz_pdf(
     title: str = Form(...),

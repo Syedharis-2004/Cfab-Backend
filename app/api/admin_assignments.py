@@ -8,7 +8,7 @@ import json
 import logging
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/admin/coding-assignment", tags=["admin-coding-assignment"])
+router = APIRouter(prefix="/admin/assignments", tags=["admin-assignments"])
 
 @router.post("/upload")
 async def upload_coding_assignment(

@@ -48,16 +48,17 @@ async def get_quiz(id: str, current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Quiz not found")
     return await _get_quiz_response(quiz)
 
-@router.post("/submit")
+@router.post("/{id}/submit")
 async def submit_quiz(
+    id: PydanticObjectId,
     submission: QuizSubmitRequest,
     current_user: User = Depends(get_current_user),
 ):
     """
     Submit answers for a quiz.
-    Input matches the requested format: {quiz_id, answers: [{question_id, selected}]}
+    Input matches the frontend format: URL contains quiz ID, body contains answers list.
     """
-    quiz = await Quiz.get(submission.quiz_id)
+    quiz = await Quiz.get(id)
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
 
@@ -75,7 +76,7 @@ async def submit_quiz(
         if not q:
             continue
 
-        if answer.selected.upper() == q.correct_answer.upper():
+        if answer.selected_answer.upper() == q.correct_answer.upper():
             score += 1
 
     return {

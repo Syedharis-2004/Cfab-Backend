@@ -253,3 +253,226 @@ async function pollSubmission(subId) {
         }
     }, 2000);
 }
+
+// --- Study Planning Logic ---
+const studySection = document.getElementById("study-section");
+let currentCourseId = null;
+
+async function fetchStudyDashboard() {
+    try {
+        const resp = await fetch(`${API_BASE}/course/all`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        const courses = await resp.json();
+        renderStudyCourses(courses);
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function renderStudyCourses(courses) {
+    const list = document.getElementById("study-list");
+    if (!list) return;
+    list.innerHTML = courses.map(c => `
+        <div class="list-item" onclick="openStudyView('${c.id}')">
+            <div class="item-info">
+                <h4>${c.title}</h4>
+                <p>Version ${c.version} | ${c.total_lectures} Lectures</p>
+            </div>
+            <div class="item-action">View Plan</div>
+        </div>
+    `).join("");
+}
+
+async function openStudyView(courseId) {
+    currentCourseId = courseId;
+    dashboardSection.classList.remove("active");
+    studySection.classList.add("active");
+    
+    const dayPlan = document.getElementById("day-wise-plan");
+    const startForm = document.getElementById("start-course-form");
+    dayPlan.innerHTML = "<div class='skeleton'></div>";
+    startForm.style.display = "none";
+
+    try {
+        const resp = await fetch(`${API_BASE}/study-plan/${courseId}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        
+        if (resp.status === 404) {
+            dayPlan.innerHTML = "<p>No study plan found. Please generate one to get started!</p>";
+            startForm.style.display = "block";
+            return;
+        }
+
+        const plan = await resp.json();
+        const progressResp = await fetch(`${API_BASE}/progress/${courseId}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        const progress = await progressResp.json();
+        
+        renderPlan(plan, progress);
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+function renderPlan(plan, progress) {
+    document.getElementById("plan-course-title").innerText = `Study Plan (v${plan.course_version})`;
+    const progressBar = document.getElementById("plan-progress");
+    const progressText = document.getElementById("plan-progress-text");
+    
+    progressBar.style.width = `${progress.progress_percentage}%`;
+    progressText.innerText = `${Math.round(progress.progress_percentage)}% Completed`;
+
+    const dayPlan = document.getElementById("day-wise-plan");
+    dayPlan.innerHTML = Object.entries(plan.plan).map(([day, lectureIds]) => `
+        <div class="day-card">
+            <h3>Day ${day.replace('day', '')}</h3>
+            <div class="lecture-list">
+                ${lectureIds.map(id => {
+                    const isCompleted = progress.completed_lectures.includes(id);
+                    return `
+                        <div class="lecture-item ${isCompleted ? 'completed' : ''}">
+                            <div class="lect-meta">
+                                <h4>Lecture ID: ${id.substring(id.length - 4)}</h4>
+                            </div>
+                            ${!isCompleted ? `<button onclick="markComplete('${id}')" class="btn-complete">Mark Done</button>` : '<span>✅</span>'}
+                        </div>
+                    `;
+                }).join("")}
+            </div>
+        </div>
+    `).join("");
+}
+
+async function generatePlan() {
+    const dailyMinutes = document.getElementById("daily-minutes").value;
+    const schedule = {
+        "monday": parseInt(document.getElementById("avail-mon").value),
+        "tuesday": parseInt(document.getElementById("avail-tue").value),
+        "wednesday": parseInt(document.getElementById("avail-wed").value),
+        "thursday": parseInt(document.getElementById("avail-thu").value),
+        "friday": parseInt(document.getElementById("avail-fri").value),
+        "saturday": parseInt(document.getElementById("avail-sat").value),
+        "sunday": parseInt(document.getElementById("avail-sun").value)
+    };
+
+    try {
+        const resp = await fetch(`${API_BASE}/course/start`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                course_id: currentCourseId,
+                daily_minutes: parseInt(dailyMinutes),
+                weekly_schedule: schedule
+            })
+        });
+
+        if (!resp.ok) throw new Error("Failed to generate plan");
+        openStudyView(currentCourseId);
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
+async function markComplete(lectureId) {
+    try {
+        const resp = await fetch(`${API_BASE}/lecture/complete`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                course_id: currentCourseId,
+                lecture_id: lectureId
+            })
+        });
+
+        if (resp.ok) {
+            openStudyView(currentCourseId);
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+// Intercept showDashboard to fetch study data
+const originalShowDashboard = showDashboard;
+window.showDashboard = async function() {
+    authSection.classList.remove("active");
+    quizSection.classList.remove("active");
+    assignmentSection.classList.remove("active");
+    studySection.classList.remove("active");
+    adminSection.classList.remove("active");
+    dashboardSection.classList.add("active");
+    
+    fetchDashboardData();
+    fetchStudyDashboard();
+};
+
+// --- Admin Logic ---
+const adminSection = document.getElementById("admin-section");
+
+function showAdmin() {
+    authSection.classList.remove("active");
+    dashboardSection.classList.remove("active");
+    quizSection.classList.remove("active");
+    assignmentSection.classList.remove("active");
+    studySection.classList.remove("active");
+    adminSection.classList.add("active");
+}
+
+document.getElementById("course-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const title = document.getElementById("course-title").value;
+    const description = document.getElementById("course-desc").value;
+
+    try {
+        const resp = await fetch(`${API_BASE}/course/create`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ title, description })
+        });
+        if (resp.ok) {
+            const data = await resp.json();
+            alert(`Course Created! ID: ${data.id}`);
+            document.getElementById("course-form").reset();
+        }
+    } catch (err) {
+        alert(err.message);
+    }
+});
+
+document.getElementById("lecture-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const course_id = document.getElementById("lect-course-id").value;
+    const title = document.getElementById("lect-title").value;
+    const video_url = document.getElementById("lect-url").value;
+    const duration = parseInt(document.getElementById("lect-duration").value);
+    const order_index = parseInt(document.getElementById("lect-order").value);
+
+    try {
+        const resp = await fetch(`${API_BASE}/lecture/upload`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ course_id, title, video_url, duration, order_index })
+        });
+        if (resp.ok) {
+            alert("Lecture Uploaded!");
+            document.getElementById("lecture-form").reset();
+        }
+    } catch (err) {
+        alert(err.message);
+    }
+});
