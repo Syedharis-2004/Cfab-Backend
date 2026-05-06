@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://localhost:8000/api";
 let token = localStorage.getItem("token");
 let user = null;
 

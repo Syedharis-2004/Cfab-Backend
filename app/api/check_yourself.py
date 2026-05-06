@@ -1,15 +1,13 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from typing import List, Dict, Any
-from app.api.auth import get_current_user
 from app.models.assignment import Assignment
 from app.models.quiz import Quiz, QuizQuestion
 from app.schemas.assignment import AssignmentListItem
-from app.models.user import User
 
 router = APIRouter(prefix="/check-yourself", tags=["check-yourself"])
 
 @router.get("", response_model=Dict[str, Any])
-async def get_check_yourself_data(current_user: User = Depends(get_current_user)):
+async def get_check_yourself_data():
     """
     Unified endpoint for the Check Yourself dashboard.
     Returns available assignments and quizzes.

@@ -24,54 +24,45 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
 
 def parse_mcq_from_text(text: str) -> List[Dict[str, Any]]:
     """
-    Returns a list of dicts with keys: question, options (List[str]), correct (str)
+    Returns a list of dicts with keys: question, options (List[str]), correct (str), correct_label (str)
     """
     questions = []
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    lines = [line.strip() for line in text.split("\n") if line.strip()]
-
-    current_question = None
-    current_options = {} # Label -> Text
-    current_answer_label = None
-
-    question_pattern = re.compile(r'^(\d+)[.)]\s+(.+)$')
-    option_pattern = re.compile(r'^([A-Da-d])[).\-\s]\s*(.+)$')
-    answer_pattern = re.compile(r'^[Aa]nswer\s*[:\-]\s*([A-Da-d])', re.IGNORECASE)
-
-    def save_question():
-        nonlocal current_question, current_options, current_answer_label
-        if current_question and len(current_options) >= 2 and current_answer_label:
-            labels = sorted(current_options.keys())
-            options_list = [current_options[l] for l in labels]
-            correct_text = current_options.get(current_answer_label, "")
+    
+    # Split the text by questions using regex: look for "1.", "2.", etc.
+    blocks = re.split(r'\n(?=\d+[.)]\s)', "\n" + text)
+    
+    for block in blocks:
+        block = block.strip()
+        if not block: continue
+        
+        # Match question number and text
+        q_match = re.search(r'^(\d+)[.)]\s+(.*?)(?=\s*[A-Da-d][.)]|\Z)', block, re.DOTALL)
+        if not q_match:
+            continue
+            
+        q_text = q_match.group(2).strip()
+        
+        # Extract options
+        options_matches = re.findall(r'([A-Da-d])[.)]\s*(.*?)(?=\s*[A-Da-d][.)]|\s*Answer:|\Z)', block, re.DOTALL | re.IGNORECASE)
+        
+        options_dict = {m[0].upper(): m[1].strip() for m in options_matches}
+        
+        # Extract answer
+        ans_match = re.search(r'Answer\s*[:\-]\s*([A-Da-d])', block, re.IGNORECASE)
+        correct_label = ans_match.group(1).upper() if ans_match else "A"
+        
+        if q_text and options_dict:
+            labels = sorted(options_dict.keys())
+            options_list = [options_dict[l] for l in labels]
+            correct_text = options_dict.get(correct_label, "")
             
             questions.append({
-                "question": current_question,
+                "question": q_text,
                 "options": options_list,
                 "correct": correct_text,
-                "correct_label": current_answer_label
+                "correct_label": correct_label
             })
-        current_question = None
-        current_options = {}
-        current_answer_label = None
-
-    for line in lines:
-        q_match = question_pattern.match(line)
-        opt_match = option_pattern.match(line)
-        ans_match = answer_pattern.match(line)
-
-        if q_match:
-            save_question()
-            current_question = q_match.group(2).strip()
-        elif opt_match and current_question:
-            current_options[opt_match.group(1).upper()] = opt_match.group(2).strip()
-        elif ans_match and current_question:
-            current_answer_label = ans_match.group(1).upper()
-        elif current_question and not opt_match and not ans_match:
-            if not current_options:
-                current_question += " " + line
-
-    save_question()
+            
     return questions
 
 def parse_quiz_pdf(file_bytes: bytes) -> List[Dict[str, Any]]:

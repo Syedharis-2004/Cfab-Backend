@@ -67,7 +67,7 @@ async def upload_quiz_pdf(
     """
     Upload a Quiz PDF and automatically extract questions and answers.
     """
-    if not file.filename.lower().endswith(".pdf"):
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
     if not PDF_SUPPORT:
