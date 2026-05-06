@@ -83,6 +83,9 @@ async def upload_quiz_pdf(
     if not extracted_questions:
         raise HTTPException(status_code=400, detail="No questions could be extracted from the PDF.")
 
+    if not current_admin or not getattr(current_admin, "id", None):
+        raise HTTPException(status_code=401, detail="Invalid admin session: Missing user ID")
+
     # Create the quiz
     quiz = Quiz(
         title=title,

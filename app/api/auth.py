@@ -27,7 +27,9 @@ async def get_current_user():
         # Database might not be initialized yet
         pass
         
+    from beanie import PydanticObjectId
     return User.model_construct(
+        id=PydanticObjectId("65f1a2b3c4d5e6f7a8b9c0d1"), # Mock ID
         email="admin@example.com",
         name="Admin User",
         hashed_password="mock_password",
