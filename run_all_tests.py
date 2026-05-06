@@ -3,7 +3,7 @@ import json
 import os
 import time
 
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = "http://127.0.0.1:8000/api"
 ADMIN_USER = "admin@example.com"
 ADMIN_PASS = "admin123"
 
@@ -119,11 +119,10 @@ def test_quiz_submission(quiz_id, user_headers):
     q_id = quiz_data['questions'][0]['id']
     
     submission = {
-        "quiz_id": quiz_id,
-        "answers": [{"question_id": q_id, "selected": "B"}]
+        "answers": [{"question_id": q_id, "selected_answer": "B"}]
     }
     
-    resp = requests.post(f"{BASE_URL}/quiz/submit", json=submission, headers=user_headers)
+    resp = requests.post(f"{BASE_URL}/quiz/{quiz_id}/submit", json=submission, headers=user_headers)
     if resp.status_code == 200:
         print(f"[SUCCESS] Quiz submitted. Result: {resp.json()}")
     else:
@@ -139,7 +138,7 @@ def test_coding_submission(assignment_id, user_headers):
         "language": "python"
     }
     
-    resp = requests.post(f"{BASE_URL}/practice-code/submit", json=submission, headers=user_headers)
+    resp = requests.post(f"{BASE_URL}/coding-assignments/submit", json=submission, headers=user_headers)
     if resp.status_code == 202:
         sub_id = resp.json()['id']
         print(f"[SUCCESS] Coding submission received. ID: {sub_id}")
@@ -148,7 +147,7 @@ def test_coding_submission(assignment_id, user_headers):
         print("Polling for results...")
         for _ in range(5):
             time.sleep(2)
-            resp = requests.get(f"{BASE_URL}/practice-code/{sub_id}", headers=user_headers)
+            resp = requests.get(f"{BASE_URL}/coding-assignments/submissions/{sub_id}", headers=user_headers)
             if resp.status_code == 200:
                 status = resp.json()['status']
                 print(f"Current status: {status}")

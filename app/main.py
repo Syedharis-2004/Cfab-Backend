@@ -21,8 +21,16 @@ async def lifespan(app: FastAPI):
     try:
         await init_db()
         logger.info("Application startup: Database initialized via lifespan.")
+        
+        # Log all registered routes
+        logger.info("Registered Routes:")
+        for route in app.routes:
+            methods = getattr(route, "methods", None)
+            path = getattr(route, "path", None)
+            logger.info(f"  {methods} {path}")
+            
     except Exception as e:
-        logger.warning(f"Application startup: Database initialization failed in lifespan (will retry in middleware): {e}")
+        logger.warning(f"Application startup: Database initialization failed: {e}")
     
     yield
 
@@ -37,11 +45,10 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
 )
 
 # Global Exception Handler
@@ -63,9 +70,11 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 @app.middleware("http")
-async def ensure_db_initialized(request: Request, call_next):
+async def log_requests_and_init_db(request: Request, call_next):
+    logger.info(f"Incoming request: {request.method} {request.url.path}")
+    
     # Skip DB init for health check and root
-    if request.url.path not in ["/health", "/", "/docs", "/openapi.json"]:
+    if request.url.path not in ["/health", "/", "/docs", "/openapi.json", "/api/health"]:
         try:
             await init_db()
         except Exception as e:
@@ -75,20 +84,17 @@ async def ensure_db_initialized(request: Request, call_next):
             )
     
     response = await call_next(request)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "*"
     return response
 
-# Include routers
-app.include_router(auth.router)
-app.include_router(check_yourself.router)
-app.include_router(assignments.router)
-app.include_router(quiz.router)
-app.include_router(admin_quiz.router)
-app.include_router(admin_assignments.router)
-app.include_router(submissions.router)
-app.include_router(study.router)
+# Include routers with /api prefix
+app.include_router(auth.router, prefix="/api")
+app.include_router(check_yourself.router, prefix="/api")
+app.include_router(assignments.router, prefix="/api")
+app.include_router(quiz.router, prefix="/api")
+app.include_router(admin_quiz.router, prefix="/api")
+app.include_router(admin_assignments.router, prefix="/api")
+app.include_router(submissions.router, prefix="/api")
+app.include_router(study.router, prefix="/api")
 
 # # Mount static files for frontend
 # app.mount("/static", StaticFiles(directory="frontend"), name="static")
