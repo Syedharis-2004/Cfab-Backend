@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+import traceback
 from typing import List, Optional
 import json
 import csv
@@ -67,53 +68,103 @@ async def upload_quiz_pdf(
     """
     Upload a Quiz PDF and automatically extract questions and answers.
     """
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
-
-    if not PDF_SUPPORT:
-        raise HTTPException(status_code=500, detail="PDF parsing service is not configured.")
-
+    logger.info(f"--- Quiz Upload Started: {title} (File: {file.filename}) ---")
+    
     try:
-        content = await file.read()
-        extracted_questions = parse_quiz_pdf(content)
+        # 1. Validation
+        if not file.filename or not file.filename.lower().endswith(".pdf"):
+            logger.warning(f"Invalid file type: {file.filename}")
+            raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+
+        if not PDF_SUPPORT:
+            logger.error("PDF parsing service (pdfplumber) is not configured.")
+            raise HTTPException(status_code=500, detail="PDF parsing service is not configured. Please install pdfplumber.")
+
+        # 2. File Reading
+        logger.info("Reading file content...")
+        try:
+            content = await file.read()
+            if not content:
+                logger.warning("Uploaded file is empty.")
+                raise ValueError("The uploaded file is empty.")
+            logger.info(f"Read {len(content)} bytes successfully.")
+        except Exception as e:
+            logger.error(f"Error reading file: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Could not read file: {str(e)}")
+
+        # 3. PDF Parsing
+        logger.info("Starting PDF parsing...")
+        try:
+            extracted_questions = parse_quiz_pdf(content)
+            logger.info(f"Successfully extracted {len(extracted_questions)} questions from PDF.")
+        except ValueError as ve:
+            logger.warning(f"PDF content validation failed: {str(ve)}")
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error(f"Unexpected PDF Parsing error: {str(e)}\n{traceback.format_exc()}")
+            raise HTTPException(status_code=400, detail=f"Failed to parse PDF structure: {str(e)}")
+
+        # 4. Admin Context Validation
+        if not current_admin or not getattr(current_admin, "id", None):
+            logger.error("Admin user ID is missing from context.")
+            raise HTTPException(status_code=401, detail="Invalid admin session: Missing user ID")
+
+        # 5. Database Insertion (Quiz)
+        logger.info("Saving Quiz to database...")
+        try:
+            quiz = Quiz(
+                title=title,
+                created_by=current_admin.id
+            )
+            await quiz.insert()
+            logger.info(f"Quiz created in DB with ID: {quiz.id}")
+        except Exception as e:
+            logger.error(f"Database error while saving Quiz: {str(e)}\n{traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail=f"Database error while saving quiz: {str(e)}")
+
+        # 6. Database Insertion (Questions)
+        logger.info(f"Saving {len(extracted_questions)} questions to database...")
+        try:
+            for i, q_data in enumerate(extracted_questions):
+                options = q_data.get("options", [])
+                correct_label = q_data.get("correct_label", "A").upper()
+                
+                question = QuizQuestion(
+                    quiz_id=quiz.id,
+                    question=q_data["question"],
+                    option_a=options[0] if len(options) > 0 else "N/A",
+                    option_b=options[1] if len(options) > 1 else "N/A",
+                    option_c=options[2] if len(options) > 2 else "N/A",
+                    option_d=options[3] if len(options) > 3 else "N/A",
+                    correct_answer=correct_label
+                )
+                await question.insert()
+            logger.info("All questions saved successfully.")
+        except Exception as e:
+            logger.error(f"Database error while saving questions: {str(e)}\n{traceback.format_exc()}")
+            # Cleanup: Delete the partial quiz if questions fail? (Optional)
+            raise HTTPException(status_code=500, detail=f"Database error while saving questions: {str(e)}")
+
+        # 7. Response Generation
+        logger.info("Generating response...")
+        try:
+            response = await _get_admin_quiz_response(quiz)
+            logger.info("--- Quiz Upload Completed Successfully ---")
+            return response
+        except Exception as e:
+            logger.error(f"Response validation error: {str(e)}\n{traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail="Data saved but failed to generate response schema.")
+
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
-        logger.error(f"PDF Parsing error: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Failed to parse PDF: {str(e)}")
-
-    if not extracted_questions:
-        raise HTTPException(status_code=400, detail="No questions could be extracted from the PDF.")
-
-    if not current_admin or not getattr(current_admin, "id", None):
-        raise HTTPException(status_code=401, detail="Invalid admin session: Missing user ID")
-
-    # Create the quiz
-    quiz = Quiz(
-        title=title,
-        created_by=current_admin.id
-    )
-    await quiz.insert()
-
-    # Save extracted questions
-    for q_data in extracted_questions:
-        # q_data looks like {"question": "...", "options": ["...", "..."], "correct": "..."}
-        # We need to map options to A, B, C, D
-        options = q_data["options"]
-        
-        # Determine which option is correct
-        correct_label = q_data.get("correct_label", "A").upper()
-        
-        question = QuizQuestion(
-            quiz_id=quiz.id,
-            question=q_data["question"],
-            option_a=options[0] if len(options) > 0 else "",
-            option_b=options[1] if len(options) > 1 else "",
-            option_c=options[2] if len(options) > 2 else "",
-            option_d=options[3] if len(options) > 3 else "",
-            correct_answer=correct_label
+        # Catch-all for any other unexpected errors
+        logger.critical(f"UNHANDLED EXCEPTION in upload_quiz_pdf: {str(e)}\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected server error occurred: {str(e)}"
         )
-        await question.insert()
-
-    return await _get_admin_quiz_response(quiz)
 
 
 @router.delete("/{id}")

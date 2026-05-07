@@ -1,9 +1,9 @@
 import requests
 
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = "http://127.0.0.1:8001/api"
 
 def test_pdf_quiz_upload():
-    test_filename = "python_quiz.pdf"
+    test_filename = "python_quiz_with_answers.pdf"
     
     with open(test_filename, "rb") as f:
         files = {"file": (test_filename, f, "application/pdf")}
