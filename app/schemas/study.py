@@ -66,3 +66,26 @@ class ProgressResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+# --- Dashboard Schemas ---
+
+class ActiveCourseItem(BaseModel):
+    id: str
+    title: str
+    progress: float
+    total_lectures: int
+    completed_count: int
+    status: str
+
+class AvailableCourseItem(BaseModel):
+    id: str
+    title: str
+    description: str
+    total_lectures: int
+    total_duration: int
+    status: str
+
+class TimeManagementDashboard(BaseModel):
+    active_courses: List[ActiveCourseItem]
+    available_courses: List[AvailableCourseItem]
+    total_courses: int
