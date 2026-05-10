@@ -12,9 +12,9 @@ class SubmissionCreate(BaseModel):
 
 
 class SubmissionRead(BaseModel):
-    id: str
-    user_id: str
-    assignment_id: str
+    id: PydanticObjectId
+    user_id: PydanticObjectId
+    assignment_id: PydanticObjectId
     code: str
     language: str
     status: SubmissionStatus
@@ -31,7 +31,7 @@ class SubmissionRead(BaseModel):
 
 class SubmissionStatusResponse(BaseModel):
     """Lightweight response for polling submission status."""
-    id: str
+    id: PydanticObjectId
     status: SubmissionStatus
     score: int
     total_cases: int

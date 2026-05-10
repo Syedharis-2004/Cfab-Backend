@@ -8,7 +8,6 @@ from app.schemas.study import (
     LectureCreate, LectureResponse
 )
 from app.services.study_service import StudyService
-from app.utils.serializer import serialize_dict, serialize_list
 
 router = APIRouter(prefix="/study", tags=["admin-study"])
 
@@ -17,7 +16,7 @@ async def create_course(course_in: CourseCreate, current_admin: User = Depends(g
     """
     Admin: Create a new course.
     """
-    return serialize_dict(await StudyService.create_course(course_in))
+    return await StudyService.create_course(course_in)
 
 @router.post("/lecture/upload", response_model=LectureResponse)
 async def upload_lecture(lecture_in: LectureCreate, current_admin: User = Depends(get_admin_user)):
@@ -25,14 +24,14 @@ async def upload_lecture(lecture_in: LectureCreate, current_admin: User = Depend
     Admin: Upload a lecture to a course. 
     This will increment the course version.
     """
-    return serialize_dict(await StudyService.upload_lecture(lecture_in))
+    return await StudyService.upload_lecture(lecture_in)
 
 @router.get("/course/all", response_model=List[CourseResponse])
 async def get_all_courses_admin(current_admin: User = Depends(get_admin_user)):
     """
     Admin: List all courses for management.
     """
-    return serialize_list(await StudyService.get_all_courses())
+    return await StudyService.get_all_courses()
 
 @router.get("/lecture/course/{course_id}", response_model=List[LectureResponse])
 async def get_course_lectures(
@@ -43,4 +42,4 @@ async def get_course_lectures(
     Get all lectures for a specific course.
     Accessible by both students and admins.
     """
-    return serialize_list(await StudyService.get_lectures_by_course(course_id))
+    return await StudyService.get_lectures_by_course(course_id)

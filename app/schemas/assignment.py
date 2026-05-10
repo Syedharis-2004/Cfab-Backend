@@ -16,7 +16,7 @@ class TestCaseCreate(BaseModel):
 
 
 class TestCaseRead(TestCaseCreate):
-    id: str
+    id: PydanticObjectId
 
     class Config:
         from_attributes = True
@@ -51,7 +51,7 @@ class CodingAssignmentCreate(AssignmentBase):
 # --- Read Schemas ---
 class AssignmentListItem(BaseModel):
     """Lightweight schema for listing all assignments."""
-    id: str
+    id: PydanticObjectId
     title: str
     assignment_type: AssignmentType
     created_at: datetime
@@ -62,7 +62,7 @@ class AssignmentListItem(BaseModel):
 
 class PDFAssignmentRead(AssignmentBase):
     """Full schema for a PDF assignment."""
-    id: str
+    id: PydanticObjectId
     file_path: Optional[str]
     created_at: datetime
 
@@ -72,7 +72,7 @@ class PDFAssignmentRead(AssignmentBase):
 
 class CodingAssignmentRead(AssignmentBase):
     """Full schema for a coding assignment (includes test cases)."""
-    id: str
+    id: PydanticObjectId
     description: Optional[str]
     function_name: Optional[str]
     starter_code: Optional[str]

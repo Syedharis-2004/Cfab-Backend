@@ -11,7 +11,6 @@ from app.schemas.study import (
     TimeManagementDashboard, ActiveCourseItem, AvailableCourseItem
 )
 from app.services.study_service import StudyService
-from app.utils.serializer import serialize_dict
 
 router = APIRouter(prefix="/time-management", tags=["time-management"])
 
@@ -71,25 +70,25 @@ async def start_course(
     """
     Start a course by providing daily study time.
     """
-    return serialize_dict(await StudyService.generate_study_plan(current_user.id, plan_in.course_id, plan_in))
+    return await StudyService.generate_study_plan(current_user.id, plan_in.course_id, plan_in)
 
 @router.get("/study-plan/{course_id}", response_model=StudyPlanResponse)
 async def get_study_plan(course_id: PydanticObjectId, current_user: User = Depends(get_current_user)):
     """
     Retrieve the locked study plan for a specific course.
     """
-    return serialize_dict(await StudyService.get_study_plan(current_user.id, course_id))
+    return await StudyService.get_study_plan(current_user.id, course_id)
 
 @router.post("/lecture/complete", response_model=ProgressResponse)
 async def complete_lecture(complete_in: LectureComplete, current_user: User = Depends(get_current_user)):
     """
     Mark a lecture as completed and update progress.
     """
-    return serialize_dict(await StudyService.complete_lecture(current_user.id, complete_in))
+    return await StudyService.complete_lecture(current_user.id, complete_in)
 
 @router.get("/progress/{course_id}", response_model=ProgressResponse)
 async def get_progress(course_id: PydanticObjectId, current_user: User = Depends(get_current_user)):
     """
     Get user progress for a specific course.
     """
-    return serialize_dict(await StudyService.get_progress(current_user.id, course_id))
+    return await StudyService.get_progress(current_user.id, course_id)

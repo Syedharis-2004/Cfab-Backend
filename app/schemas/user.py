@@ -11,7 +11,7 @@ class UserCreate(UserBase):
     password: str
 
 class User(UserBase):
-    id: str
+    id: PydanticObjectId
 
     class Config:
         from_attributes = True

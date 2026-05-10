@@ -16,7 +16,6 @@ from app.api.auth import get_current_user
 from app.models.assignment import Assignment, AssignmentType
 from app.models.submission import Submission, SubmissionStatus
 from app.schemas.submission import SubmissionCreate, SubmissionRead, SubmissionStatusResponse
-from app.utils.serializer import serialize_dict, serialize_list
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +73,15 @@ async def submit_code(
         submission.error_message = "Evaluation service unavailable. Please try again later."
         await submission.save()
 
-    return serialize_dict(submission)
+    return SubmissionStatusResponse(
+        id=submission.id,
+        status=submission.status,
+        score=submission.score,
+        total_cases=submission.total_cases,
+        passed_cases=submission.passed_cases,
+        error_message=submission.error_message,
+        evaluated_at=submission.evaluated_at,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +102,15 @@ async def get_submission_status(
     if submission.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    return serialize_dict(submission)
+    return SubmissionStatusResponse(
+        id=submission.id,
+        status=submission.status,
+        score=submission.score,
+        total_cases=submission.total_cases,
+        passed_cases=submission.passed_cases,
+        error_message=submission.error_message,
+        evaluated_at=submission.evaluated_at,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +128,7 @@ async def get_submission_detail(
         raise HTTPException(status_code=404, detail="Submission not found")
     if submission.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Access denied")
-    return serialize_dict(submission)
+    return submission
 
 
 # ---------------------------------------------------------------------------
@@ -132,4 +147,15 @@ async def list_my_submissions(
         .limit(limit)
         .to_list()
     )
-    return serialize_list(submissions)
+    return [
+        SubmissionStatusResponse(
+            id=s.id,
+            status=s.status,
+            score=s.score,
+            total_cases=s.total_cases,
+            passed_cases=s.passed_cases,
+            error_message=s.error_message,
+            evaluated_at=s.evaluated_at,
+        )
+        for s in submissions
+    ]

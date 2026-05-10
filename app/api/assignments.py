@@ -20,7 +20,6 @@ from app.schemas.assignment import (
     TestCaseRead,
     Assignment as AssignmentSchema,
 )
-from app.utils.serializer import serialize_dict, serialize_list
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/assignments", tags=["assignments"])
@@ -69,7 +68,15 @@ async def get_assignments(current_user=Depends(get_current_user)):
     Returns basic metadata only.
     """
     assignments = await Assignment.find_all().to_list()
-    return serialize_list(assignments)
+    return [
+        AssignmentListItem(
+            id=a.id,
+            title=a.title,
+            assignment_type=a.assignment_type,
+            created_at=a.created_at,
+        )
+        for a in assignments
+    ]
 
 @router.get("/search", response_model=List[AssignmentListItem])
 async def search_assignments(title: str, current_user=Depends(get_current_user)):
@@ -79,7 +86,15 @@ async def search_assignments(title: str, current_user=Depends(get_current_user))
     assignments = await Assignment.find(
         {"title": {"$regex": title, "$options": "i"}}
     ).to_list()
-    return serialize_list(assignments)
+    return [
+        AssignmentListItem(
+            id=a.id,
+            title=a.title,
+            assignment_type=a.assignment_type,
+            created_at=a.created_at,
+        )
+        for a in assignments
+    ]
 
 @router.get("/{assignment_id}")
 async def get_assignment(
@@ -96,10 +111,17 @@ async def get_assignment(
         raise HTTPException(status_code=404, detail="Assignment not found")
 
     if assignment.assignment_type == AssignmentType.PDF:
-        return serialize_dict(assignment)
+        return PDFAssignmentRead(
+            id=assignment.id,
+            title=assignment.title,
+            description=assignment.description,
+            assignment_type=assignment.assignment_type,
+            file_path=assignment.file_path,
+            created_at=assignment.created_at
+        )
 
     # Coding assignment
-    return serialize_dict(await _enrich_coding(assignment))
+    return await _enrich_coding(assignment)
 
 @router.get("/{assignment_id}/file")
 async def get_assignment_file(
@@ -151,7 +173,7 @@ async def upload_assignment(
         file_path=file_path,
     )
     await db_assignment.insert()
-    return serialize_dict(db_assignment)
+    return db_assignment
 
 @router.post("/coding", response_model=CodingAssignmentRead)
 async def create_coding_assignment(payload: CodingAssignmentCreate, current_admin=Depends(get_admin_user)):
@@ -184,7 +206,7 @@ async def create_coding_assignment(payload: CodingAssignmentCreate, current_admi
         created_tcs.append(db_tc)
 
 
-    return serialize_dict(await _enrich_coding(db_assignment))
+    return await _enrich_coding(db_assignment)
 
 
 @router.delete("/{assignment_id}")
