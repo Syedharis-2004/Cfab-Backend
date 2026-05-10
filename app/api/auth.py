@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.models.user import User
 from app.schemas.user import UserCreate, User as UserSchema
 from app.schemas.auth import Token, TokenData
+from app.utils.serializer import serialize_dict
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -60,7 +61,7 @@ async def register(user_in: UserCreate):
         role=user_in.role
     )
     await db_user.insert()
-    return db_user
+    return serialize_dict(db_user)
 
 @router.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):

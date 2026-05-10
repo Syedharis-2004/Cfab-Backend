@@ -7,6 +7,7 @@ from app.models.user_answer import UserAnswer
 from app.schemas.quiz import (
     QuizResponse, QuestionResponse, QuizSubmitRequest
 )
+from app.utils.serializer import serialize_dict, serialize_list
 from app.models.user import User
 
 router = APIRouter(prefix="/quiz", tags=["quiz"])
@@ -36,7 +37,8 @@ async def list_quizzes(current_user: User = Depends(get_current_user)):
     Correct answers are NOT included.
     """
     quizzes = await Quiz.find_all().to_list()
-    return [await _get_quiz_response(q) for q in quizzes]
+    results = [await _get_quiz_response(q) for q in quizzes]
+    return serialize_list(results)
 
 @router.get("/{id}", response_model=QuizResponse)
 async def get_quiz(id: str, current_user: User = Depends(get_current_user)):
@@ -46,7 +48,7 @@ async def get_quiz(id: str, current_user: User = Depends(get_current_user)):
     quiz = await Quiz.get(id)
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
-    return await _get_quiz_response(quiz)
+    return serialize_dict(await _get_quiz_response(quiz))
 
 @router.post("/{id}/submit")
 async def submit_quiz(

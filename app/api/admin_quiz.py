@@ -10,6 +10,7 @@ from app.models.quiz import Quiz, QuizQuestion
 from app.schemas.quiz import QuizAdminResponse, QuestionAdminResponse, QuizCreateRequest
 from app.models.user import User
 from app.services.pdf_parser import parse_quiz_pdf, PDF_SUPPORT
+from app.utils.serializer import serialize_dict
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ async def create_quiz(quiz_in: QuizCreateRequest, current_admin: User = Depends(
         await question.insert()
 
     # Reuse existing response helper (might need update if QuizAdminResponse uses options list)
-    return await _get_admin_quiz_response(quiz)
+    return serialize_dict(await _get_admin_quiz_response(quiz))
 
 
 @router.post("/upload", response_model=QuizAdminResponse)
@@ -150,7 +151,7 @@ async def upload_quiz_pdf(
         try:
             response = await _get_admin_quiz_response(quiz)
             logger.info("--- Quiz Upload Completed Successfully ---")
-            return response
+            return serialize_dict(response)
         except Exception as e:
             logger.error(f"Response validation error: {str(e)}\n{traceback.format_exc()}")
             raise HTTPException(status_code=500, detail="Data saved but failed to generate response schema.")
