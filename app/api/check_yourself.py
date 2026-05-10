@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 from app.models.assignment import Assignment
 from app.models.quiz import Quiz, QuizQuestion
 from app.schemas.assignment import AssignmentListItem
+from app.utils.mongo_serializer import serialize_doc
 
 router = APIRouter(prefix="/check-yourself", tags=["check-yourself"])
 
@@ -24,14 +25,7 @@ async def get_check_yourself_data():
             "question_count": count
         })
     
-    return {
-        "assignments": [
-            AssignmentListItem(
-                id=a.id,
-                title=a.title,
-                assignment_type=a.assignment_type,
-                created_at=a.created_at
-            ) for a in assignments
-        ],
+    return serialize_doc({
+        "assignments": assignments,
         "quizzes": quiz_list
-    }
+    })

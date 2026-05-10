@@ -4,6 +4,7 @@ from app.models.assignment import Assignment, AssignmentType
 from app.models.coding_assignment import CodingAssignment
 from app.models.test_case import TestCase
 from app.models.user import User
+from app.utils.mongo_serializer import serialize_doc
 import json
 import logging
 
@@ -17,15 +18,6 @@ async def upload_coding_assignment(
 ):
     """
     Admin uploads a JSON file for a coding assignment.
-    Format:
-    {
-      "title": "...",
-      "description": "...",
-      "function_name": "solve",
-      "test_cases": [
-        {"input": "...", "expected_output": "...", "is_hidden": false}
-      ]
-    }
     """
     if not file.filename.endswith(".json"):
         raise HTTPException(status_code=400, detail="Only JSON files are supported.")
@@ -72,11 +64,11 @@ async def upload_coding_assignment(
 
     logger.info(f"Coding assignment '{data['title']}' created by admin {current_admin.email}")
     
-    return {
+    return serialize_doc({
         "message": "Coding assignment uploaded successfully",
-        "assignment_id": str(assignment.id),
+        "assignment_id": assignment.id,
         "test_case_count": len(data["test_cases"])
-    }
+    })
     
 
 @router.delete("/{assignment_id}")

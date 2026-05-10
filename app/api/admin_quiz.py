@@ -10,6 +10,7 @@ from app.models.quiz import Quiz, QuizQuestion
 from app.schemas.quiz import QuizAdminResponse, QuestionAdminResponse, QuizCreateRequest
 from app.models.user import User
 from app.services.pdf_parser import parse_quiz_pdf, PDF_SUPPORT
+from app.utils.mongo_serializer import serialize_doc
 
 logger = logging.getLogger(__name__)
 
@@ -17,19 +18,22 @@ router = APIRouter(prefix="/admin/quiz", tags=["admin-quiz"])
 
 async def _get_admin_quiz_response(quiz: Quiz) -> QuizAdminResponse:
     questions = await QuizQuestion.find(QuizQuestion.quiz_id == quiz.id).to_list()
-    return QuizAdminResponse(
-        id=quiz.id,
-        title=quiz.title,
-        questions=[QuestionAdminResponse(
-            id=q.id,
-            question=q.question,
-            option_a=q.option_a,
-            option_b=q.option_b,
-            option_c=q.option_c,
-            option_d=q.option_d,
-            correct=q.correct_answer
-        ) for q in questions]
-    )
+    return {
+        "id": str(quiz.id),
+        "title": quiz.title,
+        "questions": [
+            {
+                "id": str(q.id),
+                "question": q.question,
+                "option_a": q.option_a,
+                "option_b": q.option_b,
+                "option_c": q.option_c,
+                "option_d": q.option_d,
+                "correct": q.correct_answer
+            }
+            for q in questions
+        ]
+    }
 
 @router.post("", response_model=QuizAdminResponse)
 async def create_quiz(quiz_in: QuizCreateRequest, current_admin: User = Depends(get_admin_user)):
@@ -54,8 +58,7 @@ async def create_quiz(quiz_in: QuizCreateRequest, current_admin: User = Depends(
         )
         await question.insert()
 
-    # Reuse existing response helper (might need update if QuizAdminResponse uses options list)
-    return await _get_admin_quiz_response(quiz)
+    return serialize_doc(await _get_admin_quiz_response(quiz))
 
 
 @router.post("/upload", response_model=QuizAdminResponse)
@@ -142,7 +145,6 @@ async def upload_quiz_pdf(
             logger.info("All questions saved successfully.")
         except Exception as e:
             logger.error(f"Database error while saving questions: {str(e)}\n{traceback.format_exc()}")
-            # Cleanup: Delete the partial quiz if questions fail? (Optional)
             raise HTTPException(status_code=500, detail=f"Database error while saving questions: {str(e)}")
 
         # 7. Response Generation
@@ -150,16 +152,14 @@ async def upload_quiz_pdf(
         try:
             response = await _get_admin_quiz_response(quiz)
             logger.info("--- Quiz Upload Completed Successfully ---")
-            return response
+            return serialize_doc(response)
         except Exception as e:
             logger.error(f"Response validation error: {str(e)}\n{traceback.format_exc()}")
             raise HTTPException(status_code=500, detail="Data saved but failed to generate response schema.")
 
     except HTTPException:
-        # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
-        # Catch-all for any other unexpected errors
         logger.critical(f"UNHANDLED EXCEPTION in upload_quiz_pdf: {str(e)}\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

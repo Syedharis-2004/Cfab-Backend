@@ -27,7 +27,7 @@ class QuizCreateRequest(BaseModel):
 
 class QuestionAdminResponse(BaseModel):
     """Question data returned to admins — includes the correct answer."""
-    id: Optional[PydanticObjectId] = None
+    id: Optional[str] = None
     question: str
     option_a: str
     option_b: str
@@ -39,15 +39,16 @@ class QuizBase(BaseModel):
     title: str
 
 class QuizAdminResponse(QuizBase):
-    id: PydanticObjectId
+    id: str
     questions: List[QuestionAdminResponse] = []
 
     class Config:
         from_attributes = True
+        populate_by_name = True
 
 class QuestionResponse(BaseModel):
     """Question data returned to regular users — NO correct answer."""
-    id: Optional[PydanticObjectId] = None
+    id: Optional[str] = None
     question: str
     option_a: str
     option_b: str
@@ -55,11 +56,12 @@ class QuestionResponse(BaseModel):
     option_d: str
 
 class QuizResponse(QuizBase):
-    id: PydanticObjectId
+    id: str
     questions: List[QuestionResponse] = []
 
     class Config:
         from_attributes = True
+        populate_by_name = True
 
 class AnswerSubmitRequest(BaseModel):
     question_id: str
@@ -72,5 +74,5 @@ class AnswerSubmitRequest(BaseModel):
         return v.upper()
 
 class QuizSubmitRequest(BaseModel):
-    quiz_id: Optional[PydanticObjectId] = None
+    quiz_id: Optional[str] = None
     answers: List[AnswerSubmitRequest]

@@ -8,26 +8,27 @@ from app.schemas.quiz import (
     QuizResponse, QuestionResponse, QuizSubmitRequest
 )
 from app.models.user import User
+from app.utils.mongo_serializer import serialize_doc, serialize_list
 
 router = APIRouter(prefix="/quiz", tags=["quiz"])
 
 async def _get_quiz_response(quiz: Quiz) -> QuizResponse:
     questions = await QuizQuestion.find(QuizQuestion.quiz_id == quiz.id).to_list()
-    return QuizResponse(
-        id=quiz.id,
-        title=quiz.title,
-        questions=[
-            QuestionResponse(
-                id=q.id,
-                question=q.question,
-                option_a=q.option_a,
-                option_b=q.option_b,
-                option_c=q.option_c,
-                option_d=q.option_d,
-            )
+    return {
+        "id": str(quiz.id),
+        "title": quiz.title,
+        "questions": [
+            {
+                "id": str(q.id),
+                "question": q.question,
+                "option_a": q.option_a,
+                "option_b": q.option_b,
+                "option_c": q.option_c,
+                "option_d": q.option_d,
+            }
             for q in questions
         ],
-    )
+    }
 
 @router.get("", response_model=List[QuizResponse])
 async def list_quizzes(current_user: User = Depends(get_current_user)):
@@ -36,7 +37,8 @@ async def list_quizzes(current_user: User = Depends(get_current_user)):
     Correct answers are NOT included.
     """
     quizzes = await Quiz.find_all().to_list()
-    return [await _get_quiz_response(q) for q in quizzes]
+    results = [await _get_quiz_response(q) for q in quizzes]
+    return serialize_list(results)
 
 @router.get("/{id}", response_model=QuizResponse)
 async def get_quiz(id: str, current_user: User = Depends(get_current_user)):
@@ -46,7 +48,7 @@ async def get_quiz(id: str, current_user: User = Depends(get_current_user)):
     quiz = await Quiz.get(id)
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
-    return await _get_quiz_response(quiz)
+    return serialize_doc(await _get_quiz_response(quiz))
 
 @router.post("/{id}/submit")
 async def submit_quiz(
@@ -83,5 +85,3 @@ async def submit_quiz(
         "score": score,
         "total": total
     }
-
-
