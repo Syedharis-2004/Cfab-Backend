@@ -1,6 +1,7 @@
 from app.models.study import Course, Lecture, StudyPlan, Progress
 from app.schemas.study import CourseCreate, LectureCreate, StudyPlanStart, LectureComplete
 from beanie import PydanticObjectId
+from beanie.operators import In
 from fastapi import HTTPException
 from math import ceil
 from datetime import datetime, timedelta
@@ -22,8 +23,10 @@ class StudyService:
 
     @staticmethod
     async def upload_lecture(lecture_in: LectureCreate) -> Lecture:
+        logger.info(f"Uploading lecture: {lecture_in.title} for course: {lecture_in.course_id}")
         course = await Course.get(lecture_in.course_id)
         if not course:
+            logger.error(f"Course not found: {lecture_in.course_id}")
             raise HTTPException(status_code=404, detail="Course not found")
         
         # When new lectures are added, increment version
@@ -31,18 +34,29 @@ class StudyService:
         course.total_lectures += 1
         course.total_duration += lecture_in.duration
         await course.save()
+        logger.info(f"Course {course.id} updated to version {course.version}")
         
         lecture = Lecture(
             **lecture_in.model_dump(),
             version_added=course.version
         )
         await lecture.insert()
+        logger.info(f"Lecture {lecture.id} inserted with version_added {lecture.version_added}")
         return lecture
 
     @staticmethod
+    async def get_lectures_by_course(course_id: PydanticObjectId) -> List[Lecture]:
+        logger.info(f"Fetching lectures for course: {course_id}")
+        lectures = await Lecture.find(Lecture.course_id == course_id).sort(+Lecture.order_index).to_list()
+        logger.info(f"Found {len(lectures)} lectures")
+        return lectures
+
+    @staticmethod
     async def generate_study_plan(user_id: PydanticObjectId, course_id: PydanticObjectId, plan_in: StudyPlanStart) -> StudyPlan:
+        logger.info(f"Generating study plan for user {user_id}, course {course_id}")
         course = await Course.get(course_id)
         if not course:
+            logger.error(f"Course not found: {course_id}")
             raise HTTPException(status_code=404, detail="Course not found")
         
         # Fetch all lectures for this course version
@@ -52,7 +66,10 @@ class StudyService:
         ).sort(+Lecture.order_index).to_list()
         
         if not lectures:
+            logger.warning(f"No lectures found for course {course_id} up to version {course.version}")
             raise HTTPException(status_code=400, detail="Course has no lectures")
+
+        logger.info(f"Found {len(lectures)} lectures for plan generation")
 
         # Check if user already has a plan for this course
         existing_plan = await StudyPlan.find_one(
@@ -60,7 +77,8 @@ class StudyService:
             StudyPlan.course_id == course_id
         )
         if existing_plan:
-            return existing_plan
+            logger.info(f"User already has a plan for course {course_id}. Returning hydrated existing plan.")
+            return await StudyService._hydrate_plan(existing_plan)
 
         # Generation logic
         plan_dict = {}
@@ -134,7 +152,34 @@ class StudyService:
             )
             await progress.insert()
             
-        return study_plan
+        return await StudyService._hydrate_plan(study_plan)
+
+    @staticmethod
+    async def _hydrate_plan(plan: StudyPlan) -> Dict:
+        logger.info(f"Hydrating study plan {plan.id}")
+        # Fetch all lecture IDs in the plan
+        all_lecture_ids = []
+        for day_lectures in plan.plan.values():
+            all_lecture_ids.extend(day_lectures)
+        
+        # Unique IDs
+        unique_ids = list(set(all_lecture_ids))
+        lectures = await Lecture.find(In(Lecture.id, unique_ids)).to_list()
+        lecture_map = {l.id: l for l in lectures}
+        
+        hydrated_plan = {}
+        for day, ids in plan.plan.items():
+            hydrated_plan[day] = [lecture_map.get(lid) for lid in ids if lid in lecture_map]
+            
+        # Convert to dict for response model
+        result = plan.model_dump()
+        result["plan"] = hydrated_plan
+        # Ensure ID is string
+        result["id"] = str(plan.id)
+        result["user_id"] = str(plan.user_id)
+        result["course_id"] = str(plan.course_id)
+        
+        return result
 
     @staticmethod
     async def complete_lecture(user_id: PydanticObjectId, complete_in: LectureComplete) -> Progress:
@@ -178,11 +223,15 @@ class StudyService:
         return progress
 
     @staticmethod
-    async def get_study_plan(user_id: PydanticObjectId, course_id: PydanticObjectId) -> StudyPlan:
+    async def get_study_plan(user_id: PydanticObjectId, course_id: PydanticObjectId) -> Dict:
+        logger.info(f"Fetching study plan for user {user_id}, course {course_id}")
         plan = await StudyPlan.find_one(
             StudyPlan.user_id == user_id,
             StudyPlan.course_id == course_id
         )
         if not plan:
+            logger.warning(f"Study plan not found for user {user_id}, course {course_id}")
             raise HTTPException(status_code=404, detail="Study plan not found")
-        return plan
+        
+        logger.info(f"Found study plan {plan.id} for course version {plan.course_version}")
+        return await StudyService._hydrate_plan(plan)
