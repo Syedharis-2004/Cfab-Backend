@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.database import init_db
 from app.api import auth, check_yourself, assignments, quiz, admin_quiz, admin_assignments, study, time_management
 from app.api import submissions
+from app.routes import solved_assignment, test_gemini
 
 logging.basicConfig(
     level=logging.INFO,
@@ -101,6 +102,8 @@ app.include_router(admin_assignments.router, prefix="/api")
 app.include_router(submissions.router, prefix="/api")
 app.include_router(study.router, prefix="/api")
 app.include_router(time_management.router, prefix="/api")
+app.include_router(solved_assignment.router)
+app.include_router(test_gemini.router)
 
 # # Mount static files for frontend
 # app.mount("/static", StaticFiles(directory="frontend"), name="static")

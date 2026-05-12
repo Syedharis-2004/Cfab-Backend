@@ -19,3 +19,7 @@ gunicorn
 certifi
 pymongo[srv]
 pdfplumber
+pandas
+openpyxl
+openai
+google-generativeai

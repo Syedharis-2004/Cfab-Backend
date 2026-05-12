@@ -16,6 +16,7 @@ from app.models.user_answer import UserAnswer
 from app.models.test_case import TestCase
 from app.models.submission import Submission
 from app.models.study import Course, Lecture, StudyPlan, Progress
+from app.models.solved_assignment import SolvedAssignment
 
 _db_initialized = False
 
@@ -75,6 +76,7 @@ async def init_db():
                 Lecture,
                 StudyPlan,
                 Progress,
+                SolvedAssignment,
             ]
         )
         _db_initialized = True

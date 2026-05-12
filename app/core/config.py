@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     MONGODB_URL: str = os.getenv("MONGODB_URL") or os.getenv("DATABASE_URL") or ""
     
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     UPLOAD_DIR: str = "uploads/assignments"
 
 settings = Settings()
