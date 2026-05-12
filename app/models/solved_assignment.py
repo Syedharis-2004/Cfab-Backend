@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict
 from beanie import Document, Indexed
 
 class SolvedAssignment(Document):
@@ -7,9 +7,8 @@ class SolvedAssignment(Document):
     mode: str  # "python" or "powerbi"
     pdf_file: str
     dataset_file: str
-    response_file: Optional[str] = None
-    summary_file: Optional[str] = None
-    config_file: Optional[str] = None
+    response_template: Optional[str] = None
+    generated_files: Dict[str, str] = {}  # {"notebook": "...", "powerbi_response": "...", "summary": "..."}
     status: str = "pending"  # "pending", "completed", "failed"
     questions_processed: int = 0
     visuals_generated: int = 0
