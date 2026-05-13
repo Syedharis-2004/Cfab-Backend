@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict
 from beanie import Document, Indexed
+from pydantic import Field
 
 class SolvedAssignment(Document):
     user_id: Indexed(str)
@@ -12,7 +13,7 @@ class SolvedAssignment(Document):
     status: str = "pending"  # "pending", "completed", "failed"
     questions_processed: int = 0
     visuals_generated: int = 0
-    created_at: datetime = datetime.utcnow()
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "solved_assignments"

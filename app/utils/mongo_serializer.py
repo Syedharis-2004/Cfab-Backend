@@ -21,9 +21,19 @@ class MongoSerializer:
             return None
 
         # 1. Handle Beanie Documents or Pydantic Models
-        if isinstance(obj, (Document, BaseModel)):
-            # We use model_dump() to get the raw dictionary representation
-            obj = obj.model_dump()
+        if hasattr(obj, "model_dump"):
+            # Pydantic v2
+            data = obj.model_dump()
+            # Beanie documents have an 'id' field that might not be in model_dump()
+            if hasattr(obj, "id") and obj.id and "id" not in data:
+                data["id"] = str(obj.id)
+            return MongoSerializer.to_dict(data)
+        elif hasattr(obj, "dict"):
+            # Pydantic v1 fallback
+            data = obj.dict()
+            if hasattr(obj, "id") and obj.id and "id" not in data:
+                data["id"] = str(obj.id)
+            return MongoSerializer.to_dict(data)
 
         # 2. Handle Lists/Iterables
         if isinstance(obj, list):

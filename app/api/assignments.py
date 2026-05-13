@@ -70,7 +70,7 @@ async def get_assignments(current_user=Depends(get_current_user)):
     """
     from app.core.database import _db_initialized
     if not _db_initialized:
-        logger.error("❌ Database not initialized. Cannot fetch assignments.")
+        logger.error("Database not initialized. Cannot fetch assignments.")
         raise HTTPException(
             status_code=503, 
             detail="Database connection is currently unavailable. Please try again later."

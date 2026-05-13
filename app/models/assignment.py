@@ -10,8 +10,6 @@ class AssignmentType(str, Enum):
     CODING = "coding"
 
 
-
-
 class Assignment(Document):
     title: str
     description: Optional[str] = None

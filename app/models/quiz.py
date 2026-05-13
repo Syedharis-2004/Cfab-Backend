@@ -1,17 +1,17 @@
 from beanie import Document, PydanticObjectId
-from typing import List
+from typing import List, Optional
 
 
 class Quiz(Document):
     title: str
-    created_by: PydanticObjectId
+    created_by: Optional[PydanticObjectId] = None
 
     class Settings:
         name = "quizzes"
 
 
 class QuizQuestion(Document):
-    quiz_id: PydanticObjectId
+    quiz_id: Optional[PydanticObjectId] = None
     question: str
     option_a: str
     option_b: str

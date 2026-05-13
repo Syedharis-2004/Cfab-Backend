@@ -40,26 +40,12 @@ app = FastAPI(
 
 # Common CORS headers for fallback error responses
 CORS_HEADERS = {
-    "Access-Control-Allow-Origin": "http://localhost:3000",
+    "Access-Control-Allow-Origin": "http://localhost:3000", # Default fallback
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Methods": "*",
     "Access-Control-Allow-Headers": "*",
 }
 
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-)
 
 # Global Exception Handler for all unhandled exceptions
 @app.exception_handler(Exception)
@@ -68,7 +54,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     stack_trace = traceback.format_exc()
     
     # Log the full error for debugging
-    logger.error(f"🔥 UNHANDLED EXCEPTION: {error_msg}\n{stack_trace}")
+    logger.error(f"UNHANDLED EXCEPTION: {error_msg}\n{stack_trace}")
     
     # Determine status code
     status_code = 500
@@ -92,16 +78,22 @@ async def log_requests(request: Request, call_next):
     # Safe request logging
     path = request.url.path
     method = request.method
-    logger.info(f"🚀 Incoming Request: {method} {path}")
+    origin = request.headers.get("origin")
+    logger.info(f"Incoming Request: {method} {path} from {origin}")
     
+    # Dynamically set CORS origin for the log_requests error responses
+    current_cors_headers = CORS_HEADERS.copy()
+    if origin in ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173"]:
+        current_cors_headers["Access-Control-Allow-Origin"] = origin
+
     try:
         response = await call_next(request)
-        logger.info(f"✅ Response Status: {response.status_code} for {method} {path}")
+        logger.info(f"Response Status: {response.status_code} for {method} {path}")
         return response
     except Exception as e:
         # Prevent middleware crashes from taking down the app
         error_msg = str(e)
-        logger.error(f"❌ Middleware Error during {method} {path}: {error_msg}")
+        logger.error(f"Middleware Error during {method} {path}: {error_msg}")
         return JSONResponse(
             status_code=500,
             content={
@@ -109,8 +101,23 @@ async def log_requests(request: Request, call_next):
                 "detail": "Critical Middleware Error",
                 "message": error_msg
             },
-            headers=CORS_HEADERS
+            headers=current_cors_headers
         )
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
 
 
 

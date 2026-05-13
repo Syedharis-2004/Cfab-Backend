@@ -25,9 +25,9 @@ router = APIRouter(prefix="/api/solved-assignment", tags=["Solved Assignment"])
 
 @router.post("/process-python", response_model=PythonModeResponse)
 async def process_python_mode(
-    pdf_file: UploadFile = File(...),
-    dataset_file: UploadFile = File(...),
-    response_template: UploadFile = File(...),
+    pdf_file: UploadFile = File(..., alias="pdf"),
+    dataset_file: UploadFile = File(..., alias="dataset"),
+    response_template: UploadFile = File(..., alias="response_file"),
     current_user = Depends(get_current_user)
 ):
     logger.info(f"Python Mode (Template) started for user {current_user.id}")
@@ -102,9 +102,9 @@ async def process_python_mode(
 
 @router.post("/process-powerbi", response_model=PowerBIModeResponse)
 async def process_powerbi_mode(
-    pdf_file: UploadFile = File(...),
-    dataset_file: UploadFile = File(...),
-    response_template: UploadFile = File(...),
+    pdf_file: UploadFile = File(..., alias="pdf"),
+    dataset_file: UploadFile = File(..., alias="dataset"),
+    response_template: UploadFile = File(..., alias="response_file"),
     current_user = Depends(get_current_user)
 ):
     logger.info(f"Power BI Mode (Template) started for user {current_user.id}")

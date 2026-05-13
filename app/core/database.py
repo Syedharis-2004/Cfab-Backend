@@ -80,14 +80,14 @@ async def init_db():
                 ]
             )
             _db_initialized = True
-            logger.info(f"✅ Beanie initialized successfully for database '{db_name}'.")
+            logger.info(f"Beanie initialized successfully for database '{db_name}'.")
             return
         except Exception as e:
-            logger.warning(f"⚠️ Database connection attempt {attempt + 1}/{max_retries} failed: {str(e)}")
+            logger.warning(f"Database connection attempt {attempt + 1}/{max_retries} failed: {str(e)}")
             if attempt < max_retries - 1:
                 await asyncio.sleep(retry_delay)
             else:
-                logger.error("❌ CRITICAL: Database initialization failed after all retries.")
+                logger.error("CRITICAL: Database initialization failed after all retries.")
                 logger.error("The application will continue to run but database-dependent features will be unavailable.")
                 _db_initialized = False
                 # We don't re-raise here to allow the app to start as requested in Task 7

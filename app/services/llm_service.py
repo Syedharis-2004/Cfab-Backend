@@ -9,16 +9,16 @@ from fastapi import HTTPException
 # Configure Gemini Client
 client = None
 if not settings.GEMINI_API_KEY:
-    logger.error("❌ GEMINI_API_KEY is not set in environment variables.")
+    logger.error("GEMINI_API_KEY is not set in environment variables.")
 else:
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        logger.info("✅ Gemini Client initialized successfully.")
+        logger.info("Gemini Client initialized successfully.")
     except Exception as e:
-        logger.error(f"❌ Failed to initialize Gemini Client: {str(e)}")
+        logger.error(f"Failed to initialize Gemini Client: {str(e)}")
 
 # Model ID - Updated to the latest recommended version
-MODEL_ID = "gemini-2.5-flash"
+MODEL_ID = "gemini-2.0-flash"
 
 async def generate_ai_response(prompt: str, system_instruction: str = None) -> str:
     """General purpose function to generate AI response using the new google-genai SDK."""
@@ -26,7 +26,7 @@ async def generate_ai_response(prompt: str, system_instruction: str = None) -> s
         logger.error("Gemini Client not initialized.")
         raise HTTPException(status_code=503, detail="AI Service is currently unavailable.")
     
-    logger.info(f"🤖 Generating AI response with {MODEL_ID}")
+    logger.info(f"Generating AI response with {MODEL_ID}")
     try:
         # The new SDK has a simpler generate_content method
         # Using asyncio.to_thread because the current SDK call is synchronous
@@ -38,12 +38,12 @@ async def generate_ai_response(prompt: str, system_instruction: str = None) -> s
         )
         
         if not response or not response.text:
-            logger.warning("⚠️ Gemini returned an empty response")
+            logger.warning("Gemini returned an empty response")
             return "I'm sorry, I couldn't generate a response at this time."
             
         return response.text
     except Exception as e:
-        logger.error(f"❌ Gemini API Error: {str(e)}")
+        logger.error(f"Gemini API Error: {str(e)}")
         # Provide a graceful fallback or a proper HTTP exception
         raise HTTPException(
             status_code=500, 
