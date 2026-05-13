@@ -1,11 +1,9 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 from .config import settings
-import logging
+from app.utils.logger import logger
 import ssl
 import certifi
-
-logger = logging.getLogger(__name__)
 
 # List of all Beanie document models for initialization
 from app.models.user import User
@@ -27,20 +25,25 @@ async def init_db():
     if _db_initialized:
         return
 
-    max_retries = 3
-    retry_delay = 2 # seconds
+    # Use a shorter timeout for local development if it's failing
+    # but give it enough time for a real connection
+    max_retries = 5
+    retry_delay = 3 # seconds
+
+    logger.info(f"Connecting to MongoDB at {settings.MONGODB_URL}...")
 
     for attempt in range(max_retries):
         try:
             if not settings.MONGODB_URL:
-                raise ValueError("MONGODB_URL is missing. Please set MONGODB_URL in environment variables.")
+                logger.error("❌ MONGODB_URL is missing in environment variables.")
+                return
 
             mongo_url = settings.MONGODB_URL
             
             # Create SSL context if needed (for Atlas)
             kwargs = {
-                "serverSelectionTimeoutMS": 10000,
-                "connectTimeoutMS": 15000,
+                "serverSelectionTimeoutMS": 5000, # 5 seconds is enough to fail fast if not running
+                "connectTimeoutMS": 10000,
             }
 
             if "mongodb+srv" in mongo_url or "ssl=true" in mongo_url.lower() or "tls=true" in mongo_url.lower():
@@ -54,6 +57,9 @@ async def init_db():
                 db_name = mongo_url.split("/")[-1].split("?")[0] or "check_yourself"
             except Exception:
                 db_name = "check_yourself"
+            
+            # Test connection before initializing Beanie
+            await client.admin.command('ping')
             
             await init_beanie(
                 database=client[db_name],
@@ -77,13 +83,12 @@ async def init_db():
             logger.info(f"✅ Beanie initialized successfully for database '{db_name}'.")
             return
         except Exception as e:
-            logger.warning(f"⚠️ Database connection attempt {attempt + 1} failed: {str(e)}")
+            logger.warning(f"⚠️ Database connection attempt {attempt + 1}/{max_retries} failed: {str(e)}")
             if attempt < max_retries - 1:
                 await asyncio.sleep(retry_delay)
             else:
                 logger.error("❌ CRITICAL: Database initialization failed after all retries.")
+                logger.error("The application will continue to run but database-dependent features will be unavailable.")
                 _db_initialized = False
-                # We don't raise here to allow the app to start, 
-                # but routes will fail if they try to access DB.
-                # However, for 503 fix, we want to know it failed.
-                raise e
+                # We don't re-raise here to allow the app to start as requested in Task 7
+

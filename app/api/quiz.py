@@ -4,6 +4,7 @@ from beanie import PydanticObjectId
 from app.api.auth import get_current_user
 from app.models.quiz import Quiz, QuizQuestion
 from app.models.user_answer import UserAnswer
+from app.utils.logger import logger
 from app.schemas.quiz import (
     QuizResponse, QuestionResponse, QuizSubmitRequest
 )
@@ -36,13 +37,22 @@ async def list_quizzes(current_user: User = Depends(get_current_user)):
     Get all available quizzes.
     Correct answers are NOT included.
     """
+    from app.core.database import _db_initialized
+    if not _db_initialized:
+        logger.error("❌ Database not initialized. Cannot fetch quizzes.")
+        raise HTTPException(
+            status_code=503, 
+            detail="Database connection is currently unavailable. Please try again later."
+        )
+
     try:
         quizzes = await Quiz.find_all().to_list()
         results = [await _get_quiz_response(q) for q in quizzes]
         return serialize_list(results)
     except Exception as e:
         logger.error(f"Quiz List Error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch quizzes")
+        raise HTTPException(status_code=500, detail="Failed to fetch quizzes due to a server error")
+
 
 @router.get("/{id}", response_model=QuizResponse)
 async def get_quiz(id: str, current_user: User = Depends(get_current_user)):

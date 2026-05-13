@@ -22,5 +22,5 @@ pdfplumber
 pandas
 openpyxl
 openai
-google-generativeai
+google-genai
 nbformat

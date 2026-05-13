@@ -1,19 +1,15 @@
 import logging
 import traceback
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+
 from app.core.database import init_db
+from app.utils.logger import logger
 from app.api import auth, check_yourself, assignments, quiz, admin_quiz, admin_assignments, study, time_management
 from app.api import submissions
 from app.routes import solved_assignment, test_gemini
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-)
-logger = logging.getLogger(__name__)
 
 from contextlib import asynccontextmanager
 
@@ -42,6 +38,13 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Common CORS headers for fallback error responses
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "http://localhost:3000",
+    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Allow-Methods": "*",
+    "Access-Control-Allow-Headers": "*",
+}
 
 # Configure CORS
 app.add_middleware(
@@ -58,38 +61,58 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
-# Global Exception Handler
+# Global Exception Handler for all unhandled exceptions
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     error_msg = str(exc)
     stack_trace = traceback.format_exc()
-    logger.error(f"Unhandled Exception: {error_msg}\n{stack_trace}")
+    
+    # Log the full error for debugging
+    logger.error(f"🔥 UNHANDLED EXCEPTION: {error_msg}\n{stack_trace}")
+    
+    # Determine status code
+    status_code = 500
+    if isinstance(exc, HTTPException):
+        status_code = exc.status_code
+        error_msg = exc.detail
     
     return JSONResponse(
-        status_code=500,
+        status_code=status_code,
         content={
-            "detail": "Internal Server Error",
+            "success": False,
+            "detail": "An internal server error occurred." if status_code == 500 else error_msg,
             "message": error_msg,
             "type": type(exc).__name__
-        }
+        },
+        headers=CORS_HEADERS
     )
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    logger.info(f"🚀 {request.method} {request.url.path}")
-    
-    # We no longer force init_db on every request to avoid 503 crashes.
-    # init_db is handled in lifespan with retries.
+    # Safe request logging
+    path = request.url.path
+    method = request.method
+    logger.info(f"🚀 Incoming Request: {method} {path}")
     
     try:
         response = await call_next(request)
+        logger.info(f"✅ Response Status: {response.status_code} for {method} {path}")
         return response
     except Exception as e:
-        logger.error(f"Middleware Error: {str(e)}")
+        # Prevent middleware crashes from taking down the app
+        error_msg = str(e)
+        logger.error(f"❌ Middleware Error during {method} {path}: {error_msg}")
         return JSONResponse(
             status_code=500,
-            content={"detail": "Critical Middleware Error", "message": str(e)}
+            content={
+                "success": False,
+                "detail": "Critical Middleware Error",
+                "message": error_msg
+            },
+            headers=CORS_HEADERS
         )
+
+
 
 # Include routers with /api prefix
 app.include_router(auth.router, prefix="/api")

@@ -68,12 +68,21 @@ async def get_assignments(current_user=Depends(get_current_user)):
     Retrieve a list of all assignments (both PDF and Coding types).
     Returns basic metadata only.
     """
+    from app.core.database import _db_initialized
+    if not _db_initialized:
+        logger.error("❌ Database not initialized. Cannot fetch assignments.")
+        raise HTTPException(
+            status_code=503, 
+            detail="Database connection is currently unavailable. Please try again later."
+        )
+
     try:
         assignments = await Assignment.find_all().to_list()
         return serialize_list(assignments)
     except Exception as e:
         logger.error(f"Assignments List Error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch assignments")
+        raise HTTPException(status_code=500, detail="Failed to fetch assignments due to a server error")
+
 
 @router.get("/search", response_model=List[AssignmentListItem])
 async def search_assignments(title: str, current_user=Depends(get_current_user)):
