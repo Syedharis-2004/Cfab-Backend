@@ -55,6 +55,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Global Exception Handler
@@ -64,8 +65,6 @@ async def global_exception_handler(request: Request, exc: Exception):
     stack_trace = traceback.format_exc()
     logger.error(f"Unhandled Exception: {error_msg}\n{stack_trace}")
     
-    # In production, you might want to hide the stack trace, 
-    # but for debugging the 500 error on Vercel, we need more info.
     return JSONResponse(
         status_code=500,
         content={
@@ -76,21 +75,21 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 @app.middleware("http")
-async def log_requests_and_init_db(request: Request, call_next):
-    logger.info(f"Incoming request: {request.method} {request.url.path}")
+async def log_requests(request: Request, call_next):
+    logger.info(f"🚀 {request.method} {request.url.path}")
     
-    # Skip DB init for health check and root
-    if request.url.path not in ["/health", "/", "/docs", "/openapi.json", "/api/health"]:
-        try:
-            await init_db()
-        except Exception as e:
-            return JSONResponse(
-                status_code=503,
-                content={"detail": f"Database connection error: {str(e)}"}
-            )
+    # We no longer force init_db on every request to avoid 503 crashes.
+    # init_db is handled in lifespan with retries.
     
-    response = await call_next(request)
-    return response
+    try:
+        response = await call_next(request)
+        return response
+    except Exception as e:
+        logger.error(f"Middleware Error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Critical Middleware Error", "message": str(e)}
+        )
 
 # Include routers with /api prefix
 app.include_router(auth.router, prefix="/api")
@@ -118,5 +117,24 @@ def read_root():
 
 
 @app.get("/health")
-def health_check():
-    return {"status": "ok"}
+async def health_check():
+    from app.core.database import _db_initialized
+    from app.core.redis_service import redis_service
+    
+    db_status = "connected" if _db_initialized else "disconnected"
+    redis_available = await redis_service.is_available()
+    redis_status = "connected" if redis_available else "disconnected"
+    
+    status_code = 200
+    if not _db_initialized:
+        status_code = 503
+        
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "ok" if _db_initialized else "degraded",
+            "database": db_status,
+            "redis": redis_status,
+            "version": "2.0.1"
+        }
+    )

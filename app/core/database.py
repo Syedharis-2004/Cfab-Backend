@@ -18,6 +18,8 @@ from app.models.submission import Submission
 from app.models.study import Course, Lecture, StudyPlan, Progress
 from app.models.solved_assignment import SolvedAssignment
 
+import asyncio
+
 _db_initialized = False
 
 async def init_db():
@@ -25,63 +27,63 @@ async def init_db():
     if _db_initialized:
         return
 
-    try:
-        if not settings.MONGODB_URL:
-            raise ValueError("MONGODB_URL is missing. Please set MONGODB_URL or DATABASE_URL in environment variables.")
+    max_retries = 3
+    retry_delay = 2 # seconds
 
-        # Build MongoDB URL — ensure it has the correct SSL/TLS params for Atlas
-        mongo_url = settings.MONGODB_URL
-        
-        # If the URL doesn't already have tls params, ensure they're added
-        # MongoDB Atlas requires TLS; Vercel's environment needs explicit SSL context
-        if "tls=" not in mongo_url and "ssl=" not in mongo_url:
-            connector = "&" if "?" in mongo_url else "?"
-            mongo_url = f"{mongo_url}{connector}tls=true&tlsAllowInvalidCertificates=false"
-
-        # Create SSL context using certifi's CA bundle
-        # This fixes the TLSV1_ALERT_INTERNAL_ERROR on Vercel's Python runtime
-        ssl_context = ssl.create_default_context(cafile=certifi.where())
-        ssl_context.check_hostname = True
-        ssl_context.verify_mode = ssl.CERT_REQUIRED
-
-        client = AsyncIOMotorClient(
-            mongo_url,
-            serverSelectionTimeoutMS=10000,
-            connectTimeoutMS=15000,
-            socketTimeoutMS=15000,
-            tls=True,
-            tlsCAFile=certifi.where(),
-        )
-        
-        # Extract db name from URL or use default
+    for attempt in range(max_retries):
         try:
-            db_name = settings.MONGODB_URL.split("/")[-1].split("?")[0] or "check_yourself"
-            if not db_name or db_name.strip() == "":
+            if not settings.MONGODB_URL:
+                raise ValueError("MONGODB_URL is missing. Please set MONGODB_URL in environment variables.")
+
+            mongo_url = settings.MONGODB_URL
+            
+            # Create SSL context if needed (for Atlas)
+            kwargs = {
+                "serverSelectionTimeoutMS": 10000,
+                "connectTimeoutMS": 15000,
+            }
+
+            if "mongodb+srv" in mongo_url or "ssl=true" in mongo_url.lower() or "tls=true" in mongo_url.lower():
+                kwargs["tls"] = True
+                kwargs["tlsCAFile"] = certifi.where()
+
+            client = AsyncIOMotorClient(mongo_url, **kwargs)
+            
+            # Extract db name
+            try:
+                db_name = mongo_url.split("/")[-1].split("?")[0] or "check_yourself"
+            except Exception:
                 db_name = "check_yourself"
-        except Exception:
-            db_name = "check_yourself"
-        
-        await init_beanie(
-            database=client[db_name],
-            document_models=[
-                User,
-                Assignment,
-                CodingAssignment,
-                Quiz,
-                QuizQuestion,
-                UserAnswer,
-                TestCase,
-                Submission,
-                Course,
-                Lecture,
-                StudyPlan,
-                Progress,
-                SolvedAssignment,
-            ]
-        )
-        _db_initialized = True
-        logger.info(f"Beanie initialized successfully for database '{db_name}'.")
-    except Exception as e:
-        logger.error(f"CRITICAL: Database initialization failed: {str(e)}")
-        _db_initialized = False
-        raise e
+            
+            await init_beanie(
+                database=client[db_name],
+                document_models=[
+                    User,
+                    Assignment,
+                    CodingAssignment,
+                    Quiz,
+                    QuizQuestion,
+                    UserAnswer,
+                    TestCase,
+                    Submission,
+                    Course,
+                    Lecture,
+                    StudyPlan,
+                    Progress,
+                    SolvedAssignment,
+                ]
+            )
+            _db_initialized = True
+            logger.info(f"✅ Beanie initialized successfully for database '{db_name}'.")
+            return
+        except Exception as e:
+            logger.warning(f"⚠️ Database connection attempt {attempt + 1} failed: {str(e)}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(retry_delay)
+            else:
+                logger.error("❌ CRITICAL: Database initialization failed after all retries.")
+                _db_initialized = False
+                # We don't raise here to allow the app to start, 
+                # but routes will fail if they try to access DB.
+                # However, for 503 fix, we want to know it failed.
+                raise e

@@ -68,18 +68,26 @@ async def get_assignments(current_user=Depends(get_current_user)):
     Retrieve a list of all assignments (both PDF and Coding types).
     Returns basic metadata only.
     """
-    assignments = await Assignment.find_all().to_list()
-    return serialize_list(assignments)
+    try:
+        assignments = await Assignment.find_all().to_list()
+        return serialize_list(assignments)
+    except Exception as e:
+        logger.error(f"Assignments List Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch assignments")
 
 @router.get("/search", response_model=List[AssignmentListItem])
 async def search_assignments(title: str, current_user=Depends(get_current_user)):
     """
     Search for assignments by title using a case-insensitive keyword search.
     """
-    assignments = await Assignment.find(
-        {"title": {"$regex": title, "$options": "i"}}
-    ).to_list()
-    return serialize_list(assignments)
+    try:
+        assignments = await Assignment.find(
+            {"title": {"$regex": title, "$options": "i"}}
+        ).to_list()
+        return serialize_list(assignments)
+    except Exception as e:
+        logger.error(f"Assignments Search Error (Query: {title}): {str(e)}")
+        raise HTTPException(status_code=500, detail="Search failed")
 
 @router.get("/{assignment_id}")
 async def get_assignment(
@@ -91,15 +99,22 @@ async def get_assignment(
     For PDF assignments, it returns metadata and the file path.
     For Coding assignments, it returns the problem description and visible test cases.
     """
-    assignment = await Assignment.get(assignment_id)
-    if not assignment:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+    try:
+        assignment = await Assignment.get(assignment_id)
+        if not assignment:
+            raise HTTPException(status_code=404, detail="Assignment not found")
 
-    if assignment.assignment_type == AssignmentType.PDF:
-        return serialize_doc(assignment)
+        if assignment.assignment_type == AssignmentType.PDF:
+            return serialize_doc(assignment)
 
-    # Coding assignment
-    return serialize_doc(await _enrich_coding(assignment))
+        # Coding assignment
+        enriched = await _enrich_coding(assignment)
+        return serialize_doc(enriched)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Assignment Get Error (ID: {assignment_id}): {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch assignment details")
 
 @router.get("/{assignment_id}/file")
 async def get_assignment_file(
@@ -107,21 +122,27 @@ async def get_assignment_file(
     current_user=Depends(get_current_user),
 ):
     """Return the raw PDF file."""
-    assignment = await Assignment.get(assignment_id)
-    if not assignment:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+    try:
+        assignment = await Assignment.get(assignment_id)
+        if not assignment:
+            raise HTTPException(status_code=404, detail="Assignment not found")
 
-    if assignment.assignment_type != AssignmentType.PDF:
-        raise HTTPException(status_code=400, detail="Not a PDF assignment")
+        if assignment.assignment_type != AssignmentType.PDF:
+            raise HTTPException(status_code=400, detail="Not a PDF assignment")
 
-    if not assignment.file_path or not os.path.exists(assignment.file_path):
-        raise HTTPException(status_code=404, detail="PDF file not found on server")
-        
-    return FileResponse(
-        assignment.file_path,
-        media_type="application/pdf",
-        filename=os.path.basename(assignment.file_path),
-    )
+        if not assignment.file_path or not os.path.exists(assignment.file_path):
+            raise HTTPException(status_code=404, detail="PDF file not found on server")
+            
+        return FileResponse(
+            assignment.file_path,
+            media_type="application/pdf",
+            filename=os.path.basename(assignment.file_path),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Assignment File Error (ID: {assignment_id}): {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to serve assignment file")
 
 @router.post("/upload", response_model=PDFAssignmentRead)
 async def upload_assignment(
@@ -134,57 +155,67 @@ async def upload_assignment(
     Admin: Upload a new practice assignment in PDF format.
     The file is stored on the server and its metadata is saved to the database.
     """
-    if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+    try:
+        if not file.filename.lower().endswith(".pdf"):
+            raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
-    if not os.path.exists(settings.UPLOAD_DIR):
-        os.makedirs(settings.UPLOAD_DIR)
+        if not os.path.exists(settings.UPLOAD_DIR):
+            os.makedirs(settings.UPLOAD_DIR)
 
-    file_path = os.path.join(settings.UPLOAD_DIR, file.filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        file_path = os.path.join(settings.UPLOAD_DIR, file.filename)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-    db_assignment = Assignment(
-        title=title,
-        description=description,
-        assignment_type=AssignmentType.PDF,
-        file_path=file_path,
-    )
-    await db_assignment.insert()
-    return serialize_doc(db_assignment)
+        db_assignment = Assignment(
+            title=title,
+            description=description,
+            assignment_type=AssignmentType.PDF,
+            file_path=file_path,
+        )
+        await db_assignment.insert()
+        return serialize_doc(db_assignment)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Assignment Upload Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to upload assignment")
 
 @router.post("/coding", response_model=CodingAssignmentRead)
 async def create_coding_assignment(payload: CodingAssignmentCreate, current_admin=Depends(get_admin_user)):
     """Admin: create a coding assignment via JSON payload."""
-    db_assignment = Assignment(
-        title=payload.title,
-        assignment_type=AssignmentType.CODING,
-    )
-    await db_assignment.insert()
-
-    coding_meta = CodingAssignment(
-        assignment_id=db_assignment.id,
-        title=payload.title,
-        description=payload.description,
-        function_name=payload.function_name,
-        starter_code=payload.starter_code,
-        language=payload.language or "python",
-    )
-    await coding_meta.insert()
-
-    created_tcs = []
-    for tc in payload.test_cases:
-        db_tc = TestCase(
-            assignment_id=db_assignment.id,
-            input=tc.input,
-            expected_output=tc.expected_output,
-            is_hidden=tc.is_hidden,
+    try:
+        db_assignment = Assignment(
+            title=payload.title,
+            assignment_type=AssignmentType.CODING,
         )
-        await db_tc.insert()
-        created_tcs.append(db_tc)
+        await db_assignment.insert()
 
+        coding_meta = CodingAssignment(
+            assignment_id=db_assignment.id,
+            title=payload.title,
+            description=payload.description,
+            function_name=payload.function_name,
+            starter_code=payload.starter_code,
+            language=payload.language or "python",
+        )
+        await coding_meta.insert()
 
-    return serialize_doc(await _enrich_coding(db_assignment))
+        created_tcs = []
+        for tc in payload.test_cases:
+            db_tc = TestCase(
+                assignment_id=db_assignment.id,
+                input=tc.input,
+                expected_output=tc.expected_output,
+                is_hidden=tc.is_hidden,
+            )
+            await db_tc.insert()
+            created_tcs.append(db_tc)
+
+        enriched = await _enrich_coding(db_assignment)
+        return serialize_doc(enriched)
+    except Exception as e:
+        logger.error(f"Coding Assignment Creation Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create coding assignment")
 
 
 @router.delete("/{assignment_id}")
@@ -193,24 +224,28 @@ async def delete_assignment(
     current_admin=Depends(get_admin_user),
 ):
     """Admin: Delete an assignment and its associated file/metadata."""
-    assignment = await Assignment.get(assignment_id)
-    if not assignment:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+    try:
+        assignment = await Assignment.get(assignment_id)
+        if not assignment:
+            raise HTTPException(status_code=404, detail="Assignment not found")
 
-    if assignment.assignment_type == AssignmentType.PDF:
-        # Delete file from disk
-        if assignment.file_path and os.path.exists(assignment.file_path):
-            try:
-                os.remove(assignment.file_path)
-            except Exception as e:
-                logger.error(f"Error deleting file {assignment.file_path}: {e}")
-    
-    elif assignment.assignment_type == AssignmentType.CODING:
-        # Delete coding metadata and test cases
-        await CodingAssignment.find(CodingAssignment.assignment_id == assignment.id).delete()
-        await TestCase.find(TestCase.assignment_id == assignment.id).delete()
-        # Also could delete submissions, but usually better to keep them or handle cascade
-        # For now, let's just delete the main assignment record and its metadata
+        if assignment.assignment_type == AssignmentType.PDF:
+            # Delete file from disk
+            if assignment.file_path and os.path.exists(assignment.file_path):
+                try:
+                    os.remove(assignment.file_path)
+                except Exception as e:
+                    logger.error(f"Error deleting file {assignment.file_path}: {e}")
+        
+        elif assignment.assignment_type == AssignmentType.CODING:
+            # Delete coding metadata and test cases
+            await CodingAssignment.find(CodingAssignment.assignment_id == assignment.id).delete()
+            await TestCase.find(TestCase.assignment_id == assignment.id).delete()
 
-    await assignment.delete()
-    return {"message": "Assignment deleted successfully"}
+        await assignment.delete()
+        return {"message": "Assignment deleted successfully", "id": str(assignment_id)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Assignment Deletion Error (ID: {assignment_id}): {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete assignment")
