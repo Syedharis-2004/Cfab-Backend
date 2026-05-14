@@ -70,59 +70,46 @@ function App() {
     document.body.removeChild(link);
   };
 
-  const simulateProcessing = async (targetMode: 'python' | 'powerbi') => {
-    setIsProcessing(true);
-    setProgress(0);
-    setError(null);
-
-    const steps = [
-      { name: 'Uploading files and templates...', progress: 20 },
-      { name: 'Extracting questions from PDF...', progress: 40 },
-      { name: 'Analyzing dataset and template structure...', progress: 65 },
-      { name: 'AI Reasoning & Template Filling...', progress: 85 },
-      { name: 'Finalizing downloadable files...', progress: 100 },
-    ];
-
-    for (const step of steps) {
-      setProcessingStep(step.name);
-      await new Promise(r => setTimeout(r, 1200));
-      setProgress(step.progress);
-    }
-
-    if (targetMode === 'python') {
-      setResult({
-        success: true,
-        questions_processed: 10,
-        notebook_file: 'filled_assignment.ipynb',
-        summary_file: 'summary.txt',
-        download_urls: {
-          notebook: `/api/solved-assignment/download/filled_assignment.ipynb?uid=user_1&aid=assign_1`,
-          summary: `/api/solved-assignment/download/summary.txt?uid=user_1&aid=assign_1`
-        }
-      });
-    } else {
-      setResult({
-        success: true,
-        visuals_generated: 8,
-        powerbi_response_file: 'filled_powerbi_response.json',
-        summary_file: 'summary.txt',
-        download_urls: {
-          powerbi_response: `/api/solved-assignment/download/filled_powerbi_response.json?uid=user_1&aid=assign_1`,
-          summary: `/api/solved-assignment/download/summary.txt?uid=user_1&aid=assign_1`
-        }
-      });
-    }
-
-    setIsProcessing(false);
-    setMode('result');
-  };
-
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!pdfFile || !datasetFile || !templateFile) {
       setError(`Please upload PDF, Dataset, and ${mode === 'python' ? '.ipynb' : '.json'} template.`);
       return;
     }
-    simulateProcessing(mode === 'python' ? 'python' : 'powerbi');
+
+    setIsProcessing(true);
+    setProgress(0);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('pdf', pdfFile);
+      formData.append('dataset', datasetFile);
+      formData.append('response_file', templateFile);
+
+      const endpoint = mode === 'python' ? '/api/solved-assignment/process-python' : '/api/solved-assignment/process-powerbi';
+      
+      setProcessingStep('Uploading and processing with AI...');
+      setProgress(30);
+
+      const response = await axios.post(`${BACKEND_URL}${endpoint}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 100));
+          setProgress(Math.min(percentCompleted, 20)); // Upload is just first 20%
+        }
+      });
+
+      setProgress(100);
+      setResult(response.data);
+      setMode('result');
+    } catch (err: any) {
+      console.error('Error processing assignment:', err);
+      setError(err.response?.data?.detail || 'An unexpected error occurred during processing.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const resetForm = () => {
@@ -131,6 +118,7 @@ function App() {
     setDatasetFile(null);
     setTemplateFile(null);
     setError(null);
+    setResult(null);
   };
 
   return (

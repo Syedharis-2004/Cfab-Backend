@@ -17,8 +17,8 @@ else:
     except Exception as e:
         logger.error(f"Failed to initialize Gemini Client: {str(e)}")
 
-# Model ID - Updated to the latest recommended version
-MODEL_ID = "gemini-2.0-flash"
+# Model ID - Switched to 3.1-flash-lite for 2026 compatibility
+MODEL_ID = "gemini-3.1-flash-lite"
 
 async def generate_ai_response(prompt: str, system_instruction: str = None) -> str:
     """General purpose function to generate AI response using the new google-genai SDK."""

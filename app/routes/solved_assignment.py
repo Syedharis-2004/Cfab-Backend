@@ -187,8 +187,8 @@ async def download_file(
     """
     Secure download endpoint for assignment outputs.
     """
-    # Security: Ensure user can only download their own files
-    if str(current_user.id) != uid:
+    # Security: Ensure user can only download their own files, or is an admin
+    if str(current_user.id) != uid and getattr(current_user, "role", "user") != "admin":
         raise HTTPException(status_code=403, detail="Forbidden: Access denied.")
     
     file_path = Path("outputs") / uid / aid / file_name
